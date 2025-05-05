@@ -12,6 +12,20 @@
 #define CON_GREEN 2
 #define CON_RED	  4
 #define CON_WHITE 7
+
+#define CLR_RESET	"\x1b[0m"
+#define CLR_TITLE	"\x1b[1;33m"  	// 黄色
+#define CLR_MENU	"\x1b[1;36m"	// 青色
+#define CLR_INPUT	"\x1b[1;32m"	// 绿色
+#define CLR_ERROR	"\x1b[1;31m"	// 红色
+#define CLR_INFO	"\x1b[1;37m"	// 白色
+
+#define PRINT_TITLE(fmt, ...) printf(CLR_TITLE fmt CLR_RESET,##__VA_ARGS__)
+#define PRINT_MENU(fmt, ...) printf(CLR_MENU fmt CLR_RESET,##__VA_ARGS__)
+#define PRINT_INPUT(fmt, ...) printf(CLR_INPUT fmt CLR_RESET,##__VA_ARGS__)
+#define PRINT_ERROR(fmt, ...) printf(CLR_ERROR fmt CLR_RESET,##__VA_ARGS__)
+#define PRINT_INFO(fmt, ...) printf(CLR_INFO fmt CLR_RESET,##__VA_ARGS__)
+
 // ==============================================
 BOOL IsPEFile(const char* fileName)
 {
@@ -190,6 +204,13 @@ CLEAN:
 	if (szBuffer1 != NULL) free(szBuffer1);
 	if (szBuffer2 != NULL) free(szBuffer2);
 }
+// =======================================================
+VOID ShowMenu()
+{
+	PRINT_TITLE("==== PE File Analysis Tool ====");
+}
+// =======================================================
+
 int main()
 {
 	//DUMP
@@ -197,7 +218,10 @@ int main()
 		/*const char* fileName = R"(C:\Users\stdio\source\repos\Project1\Project1\pe.exe)";
 		HexDump(fileName);*/
 	}
-
+	{
+		ShowMenu();
+		return 0;
+	}
 	// CMP
 	{
 		char file1Path[MAX_PATH] = {};
