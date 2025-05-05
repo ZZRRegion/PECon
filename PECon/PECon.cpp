@@ -207,7 +207,22 @@ CLEAN:
 // =======================================================
 VOID ShowMenu()
 {
-	PRINT_TITLE("==== PE File Analysis Tool ====");
+	PRINT_TITLE("==== PE File Analysis Tool ====\n\n");
+
+	PRINT_MENU("命令列表:\n");
+	PRINT_MENU("    load		- 加载PE文件\n");
+	PRINT_MENU("    info		- 显示PE基本信息\n");
+	PRINT_MENU("    dos			- 显示DOS数据\n");
+	PRINT_MENU("    nt			- 显示NT数据\n");
+	PRINT_MENU("    section		- 显示SECTION数据\n");
+	PRINT_MENU("    import		- 显示IMPORT数据\n");
+	PRINT_MENU("    export		- 显示EXPORT\n");
+	PRINT_MENU("    relocation		- 显示RELOCATION数据\n");
+	PRINT_MENU("    clear		- 清屏\n");
+	PRINT_MENU("    help		- 获取帮助\n");
+	PRINT_MENU("    exit		- 退出程序\n");
+
+	PRINT_INFO("请输入命令> ");
 }
 // =======================================================
 
