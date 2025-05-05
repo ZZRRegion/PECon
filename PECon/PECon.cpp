@@ -25,7 +25,53 @@
 #define PRINT_INPUT(fmt, ...) printf(CLR_INPUT fmt CLR_RESET,##__VA_ARGS__)
 #define PRINT_ERROR(fmt, ...) printf(CLR_ERROR fmt CLR_RESET,##__VA_ARGS__)
 #define PRINT_INFO(fmt, ...) printf(CLR_INFO fmt CLR_RESET,##__VA_ARGS__)
+// ==============================================
+HANDLE g_hFile = INVALID_HANDLE_VALUE;
+DWORD g_dwFileSize = 0;
+PBYTE g_lpFileBuffer = nullptr;
+PIMAGE_DOS_HEADER g_pDosHeader = nullptr;
+PIMAGE_NT_HEADERS g_pNtHeaders = nullptr;
+PIMAGE_SECTION_HEADER g_pSectionHeader = nullptr;
 
+// ==============================================
+
+void CmdLoad(CONST CHAR* param);
+void CmdInfo(CONST CHAR* param);
+void CmdDos(CONST CHAR* param);
+void CmdNt(CONST CHAR* param);
+void CmdSection(CONST CHAR* param);
+void CmdImport(CONST CHAR* param);
+void CmdExport(CONST CHAR* param);
+void CmdRelocation(CONST CHAR* param);
+void CmdClear(CONST CHAR* param);
+void CmdHelp(CONST CHAR* param);
+void CmdExit(CONST CHAR* param);
+
+void FreeLoadedFile();
+// ==============================================
+typedef void (*CmdHandler)(CONST CHAR* param);
+CmdHandler FindCmdHandler(CONST CHAR* cmd);
+typedef struct
+{
+	CONST CHAR* cmd;
+	CmdHandler handler;
+}CmdEntry;
+
+static const CmdEntry CMD_TABLE[] =
+{
+	{"load",		CmdLoad},
+	{"info",		CmdInfo},
+	{"dos",			CmdDos},
+	{"nt",			CmdNt},
+	{"section",		CmdSection},
+	{"import",		CmdImport},
+	{"export",		CmdExport},
+	{"relocation",	CmdRelocation},
+	{"clear",		CmdClear},
+	{"help",		CmdHelp},
+	{"exit",		CmdExit},
+	{nullptr, nullptr}
+};
 // ==============================================
 BOOL IsPEFile(const char* fileName)
 {
@@ -207,6 +253,7 @@ CLEAN:
 // =======================================================
 VOID ShowMenu()
 {
+	system("cls");
 	PRINT_TITLE("==== PE File Analysis Tool ====\n\n");
 
 	PRINT_MENU("命令列表:\n");
@@ -224,41 +271,224 @@ VOID ShowMenu()
 
 	PRINT_INFO("请输入命令> ");
 }
+VOID ProcessCommand()
+{
+	CHAR cmdLine[0xFF] = {};
+	CHAR cmd[32] = {};
+	CHAR param[0xff] = {};
+	if (fgets(cmdLine, 0xff, stdin))
+	{
+		size_t len = strlen(cmdLine);
+		if (len > 0 && cmdLine[len - 1] == '\n')
+		{
+			cmdLine[len - 1] = '\0';
+		}
+
+		int parsed = sscanf(cmdLine, "%31s %255s[^\n]", cmd, param);
+		/*if (parsed > 0)
+		{
+			PRINT_INFO("Command	->	%s \n", cmd);
+			if (parsed == 2)
+			{
+				PRINT_INFO("Param	->	%s \n", param);
+			}
+		}*/
+	}
+
+	CmdHandler handler = FindCmdHandler(cmd);
+	if (handler)
+	{
+		handler(param);
+	}
+	else if (cmd[0] != '\0')
+	{
+		PRINT_ERROR("\n错误 -> 未知指令\r\n");
+	}
+}
 // =======================================================
 
 int main()
 {
-	//DUMP
+	while(1)
 	{
-		/*const char* fileName = R"(C:\Users\stdio\source\repos\Project1\Project1\pe.exe)";
-		HexDump(fileName);*/
-	}
-	{
+		//D:\DriverDevelop\InstDrv\InstDrv.exe
 		ShowMenu();
-		return 0;
+		ProcessCommand();
+		system("pause");
 	}
-	// CMP
-	{
-		char file1Path[MAX_PATH] = {};
-		char file2Path[MAX_PATH] = {};
-		SetConsoleColor(CON_GREEN);
-		printf("PE文件二进制对比工具\r\n");
-		SetConsoleColor(CON_WHITE);
-		
-		printf("请输入第一个PE文件的完整路径：");
-		if (fgets(file1Path, MAX_PATH, stdin) != NULL)
-		{
-			file1Path[strcspn(file1Path, "\n")] = 0;
-		}
-
-		printf("请输入第二个PE文件的完整路径：");
-		if (fgets(file2Path, MAX_PATH, stdin) != NULL)
-		{
-			file2Path[strcspn(file2Path, "\n")] = 0;
-		}
-
-		CompareFileByBin(file1Path, file2Path);
-	}
+	
 	return 0;
 }
 
+void CmdLoad(const CHAR* param)
+{
+	// 参数校验
+	if (param == nullptr || *param == '\0')
+	{
+		PRINT_ERROR("错误	->	请指定PE文件路径\r\n");
+		return;
+	}
+	// 释放数据
+	FreeLoadedFile();
+	// 打开文件
+	g_hFile = CreateFileA(
+		param,
+		GENERIC_READ,
+		FILE_SHARE_READ,
+		NULL,
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL,
+		NULL);
+	if (g_hFile == INVALID_HANDLE_VALUE)
+	{
+		PRINT_ERROR("错误	->	无法打开文件[%s] (错误码：%d)\r\n", param, GetLastError());
+		return;
+	}
+	// 文件大小
+	LARGE_INTEGER liFileSize = {};
+	if (!GetFileSizeEx(g_hFile, &liFileSize) || liFileSize.QuadPart == 0)
+	{
+		PRINT_ERROR("错误	->	获取文件大小失败 （错误码：%d)\r\n", GetLastError());
+		FreeLoadedFile();
+		return;
+	}
+	g_dwFileSize = (DWORD)liFileSize.QuadPart;
+	// 申请内存
+	g_lpFileBuffer = (PBYTE)malloc(g_dwFileSize);
+	if (!g_lpFileBuffer)
+	{
+		PRINT_ERROR("错误	->	内存申请失败（大小：%d)\r\n", g_dwFileSize);
+		FreeLoadedFile();
+		return;
+	}
+	// 获取数据
+	DWORD dwByteRead = 0;
+	if (!ReadFile(g_hFile, g_lpFileBuffer, g_dwFileSize, &dwByteRead, NULL) || dwByteRead != g_dwFileSize)
+	{
+		PRINT_ERROR("错误	->	文件读取失败 （读取：%d/%d bytes)\r\n", dwByteRead, g_dwFileSize);
+		FreeLoadedFile();
+		return;
+	}
+
+	// DOS
+	g_pDosHeader = (PIMAGE_DOS_HEADER)g_lpFileBuffer;
+	if (g_pDosHeader->e_magic != IMAGE_DOS_SIGNATURE)
+	{
+		PRINT_ERROR("错误	->	无效的DOS签名（0x%03X)\r\n", g_pDosHeader->e_magic);
+		FreeLoadedFile();
+		return;
+	}
+
+	// NT
+	DWORD dwNtHeaderOffset = g_pDosHeader->e_lfanew;
+	if (dwNtHeaderOffset < sizeof(IMAGE_DOS_HEADER) || dwNtHeaderOffset + sizeof(IMAGE_NT_HEADERS) > g_dwFileSize)
+	{
+		PRINT_ERROR("错误	->	无效的NT偏移（0x%08X)\r\n", dwNtHeaderOffset);
+		FreeLoadedFile();
+		return;
+	}
+
+	g_pNtHeaders = (PIMAGE_NT_HEADERS)(g_lpFileBuffer + dwNtHeaderOffset);
+	if (g_pNtHeaders->Signature != IMAGE_NT_SIGNATURE)
+	{
+		PRINT_ERROR("错误	->	无效的PE签名（0x%08X)\r\n", g_pNtHeaders->Signature);
+		FreeLoadedFile();
+		return;
+	}
+
+	WORD opHeaderMagic = g_pNtHeaders->OptionalHeader.Magic;
+	if (opHeaderMagic != IMAGE_NT_OPTIONAL_HDR32_MAGIC && opHeaderMagic != IMAGE_NT_OPTIONAL_HDR64_MAGIC)
+	{
+		PRINT_ERROR("错误	->	不支持的OPTION->MAGIC（0x%04X)\r\n", opHeaderMagic);
+		FreeLoadedFile();
+		return;
+	}
+	// SECTION
+	DWORD dwSectionHeaderOffset = dwNtHeaderOffset +
+		sizeof(DWORD) +
+		IMAGE_SIZEOF_FILE_HEADER +
+		g_pNtHeaders->FileHeader.SizeOfOptionalHeader;
+
+	g_pSectionHeader = (PIMAGE_SECTION_HEADER)(g_lpFileBuffer + dwSectionHeaderOffset);
+
+	//释放资源
+	CloseHandle(g_hFile);
+	g_hFile = INVALID_HANDLE_VALUE;
+
+	//输出信息
+	PRINT_INFO("成功加载PE文件	->	%s \r\n", param);
+	PRINT_INFO("文件大小	->	0x%08x \r\n", g_dwFileSize);
+}
+
+void CmdInfo(const CHAR* param)
+{
+	PRINT_INFO("%s \r\n", param);
+}
+
+void CmdDos(const CHAR* param)
+{
+}
+
+void CmdNt(const CHAR* param)
+{
+}
+
+void CmdSection(const CHAR* param)
+{
+}
+
+void CmdImport(const CHAR* param)
+{
+}
+
+void CmdExport(const CHAR* param)
+{
+}
+
+void CmdRelocation(const CHAR* param)
+{
+}
+
+void CmdClear(const CHAR* param)
+{
+}
+
+void CmdHelp(const CHAR* param)
+{
+}
+
+void CmdExit(const CHAR* param)
+{
+}
+
+void FreeLoadedFile()
+{
+	if (g_lpFileBuffer)
+	{
+		free(g_lpFileBuffer);
+		g_lpFileBuffer = nullptr;
+	}
+
+	if (g_hFile != INVALID_HANDLE_VALUE)
+	{
+		CloseHandle(g_hFile);
+		g_hFile = INVALID_HANDLE_VALUE;
+	}
+
+	g_dwFileSize = 0;
+	g_pDosHeader = nullptr;
+	g_pNtHeaders = nullptr;
+	g_pSectionHeader = nullptr;
+}
+
+CmdHandler FindCmdHandler(const CHAR* cmd)
+{
+	for (CONST CmdEntry* entry = CMD_TABLE; entry->cmd != nullptr; entry++)
+	{
+		if (strcmp(cmd, entry->cmd) == 0)
+		{
+			return entry->handler;
+		}
+	}
+	return nullptr;
+}
