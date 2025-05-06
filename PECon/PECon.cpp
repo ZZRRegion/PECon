@@ -553,49 +553,95 @@ void CmdNt(const CHAR* param)
 
 	PRINT_TITLE("\n==== Nt Option Header Infomation ====\n\n");
 	PIMAGE_OPTIONAL_HEADER pOptionalHeader = &g_pNtHeaders->OptionalHeader;
-	/*
-	WORD    Magic;
-    BYTE    MajorLinkerVersion;
-    BYTE    MinorLinkerVersion;
-    DWORD   SizeOfCode;
-    DWORD   SizeOfInitializedData;
-    DWORD   SizeOfUninitializedData;
-    DWORD   AddressOfEntryPoint;
-    DWORD   BaseOfCode;
-    DWORD   BaseOfData;
-
-	DWORD   ImageBase;
-	DWORD   SectionAlignment;
-	DWORD   FileAlignment;
-	WORD    MajorOperatingSystemVersion;
-	WORD    MinorOperatingSystemVersion;
-	WORD    MajorImageVersion;
-	WORD    MinorImageVersion;
-	WORD    MajorSubsystemVersion;
-	WORD    MinorSubsystemVersion;
-	DWORD   Win32VersionValue;
-	DWORD   SizeOfImage;
-	DWORD   SizeOfHeaders;
-	DWORD   CheckSum;
-	*/
-	PRINT_INFO("	00014h	Magic			->	0x%04X		表示文件类型：0x010B(32位PE),0x020B(64位PE)\r\n", pOptionalHeader->Magic);
+	
+	const char* szMagic = "UNKNOW";
+	switch (pOptionalHeader->Magic)
+	{
+	case IMAGE_NT_OPTIONAL_HDR32_MAGIC: szMagic = "PE32 (32bit)"; break;
+	case IMAGE_NT_OPTIONAL_HDR64_MAGIC: szMagic = "PE32+(64bit)"; break;
+	}
+	PRINT_ERROR("	00014h	Magic			->	0x%04X		表示文件类型：%s\r\n", pOptionalHeader->Magic, szMagic);
 	PRINT_INFO("	00014h	MajorLinkerVersion	->	%d		链接器的主版本号\r\n", pOptionalHeader->MajorLinkerVersion);
 	PRINT_INFO("	00014h	MinorLinkerVersion	->	%d		链接器的次版本号\r\n", pOptionalHeader->MinorLinkerVersion);
-	PRINT_INFO("	00014h	SizeOfCode		->	0x%04X		所有代码节的总大小（通常位.text段）文件对齐后的大小\r\n", pOptionalHeader->SizeOfCode);
+	PRINT_ERROR("	00014h	SizeOfCode		->	0x%04X		所有代码节的总大小（通常位.text段）文件对齐后的大小\r\n", pOptionalHeader->SizeOfCode);
 	PRINT_INFO("	00014h	SizeOfInitializedData	->	0x%08X	已初始化数据的节的总大小（如.data段)\r\n", pOptionalHeader->SizeOfInitializedData);
 	PRINT_INFO("	00014h	SizeOfUninitializedData	->	0x%04X		未初始化数据的节的总大小（如.bss段）\r\n", pOptionalHeader->SizeOfUninitializedData);
-	PRINT_INFO("	00014h	AddressOfEntryPoint	->	0x%08X	程序入口点（RVA地址），指向main或DllMain\r\n", pOptionalHeader->AddressOfEntryPoint);
+	PRINT_ERROR("	00014h	AddressOfEntryPoint	->	0x%08X	程序入口点（RVA地址），指向main或DllMain\r\n", pOptionalHeader->AddressOfEntryPoint);
 	PRINT_INFO("	00014h	BaseOfCode		->	0x%08X	代码段的起始RVA\r\n", pOptionalHeader->BaseOfCode);
 	PRINT_INFO("	00014h	BaseOfData		->	0x%08X	数据段的起始RVA\r\n", pOptionalHeader->BaseOfData);
 	
-	PRINT_INFO("	00014h	ImageBase		->	0x%08X	文件加载到内存时的首选基地址（如0x400000）\r\n", pOptionalHeader->ImageBase);
-	PRINT_INFO("	00014h	SectionAlignment	->	0x%08X	内存中段的对齐粒度（通常0x1000即4KB)\r\n", pOptionalHeader->SectionAlignment);
-	PRINT_INFO("	00014h	FileAlignment		->	0x%08X	文件中段的对齐粒度（通常0x200即512字节）\r\n", pOptionalHeader->FileAlignment);
-	PRINT_INFO("	00014h	SizeOfImage		->	0x%08X	整个PE文件映射到内存后的总大小\r\n", pOptionalHeader->SizeOfImage);
-	PRINT_INFO("	00014h	SizeOfHeaders		->	0x%08X	所有头结构（DOS+PE头+节表）的总大小（按FileAlign对齐）\r\n", pOptionalHeader->SizeOfHeaders);
-	PRINT_INFO("	00014h	Subsystem		->	0x%04X		子系统\r\n", pOptionalHeader->Subsystem);
-	PRINT_INFO("	00014h	DllCharacteristics	->	0x%08X	特性\r\n", pOptionalHeader->DllCharacteristics);
+	PRINT_ERROR("	00014h	ImageBase		->	0x%08X	文件加载到内存时的首选基地址（如0x400000）\r\n", pOptionalHeader->ImageBase);
+	PRINT_ERROR("	00014h	SectionAlignment	->	0x%08X	内存中段的对齐粒度（通常0x1000即4KB)\r\n", pOptionalHeader->SectionAlignment);
+	PRINT_ERROR("	00014h	FileAlignment		->	0x%08X	文件中段的对齐粒度（通常0x200即512字节）\r\n", pOptionalHeader->FileAlignment);
+	PRINT_ERROR("	00014h	SizeOfImage		->	0x%08X	整个PE文件映射到内存后的总大小\r\n", pOptionalHeader->SizeOfImage);
+	PRINT_ERROR("	00014h	SizeOfHeaders		->	0x%08X	所有头结构（DOS+PE头+节表）的总大小（按FileAlign对齐）\r\n", pOptionalHeader->SizeOfHeaders);
+	const char* szSubsystem = "UNKNOW";
+	switch (pOptionalHeader->Subsystem)
+	{
+	case IMAGE_SUBSYSTEM_WINDOWS_GUI: szSubsystem = "GUI"; break;
+	case IMAGE_SUBSYSTEM_WINDOWS_CUI: szSubsystem = "CUI"; break;
+	}
+	PRINT_ERROR("	00014h	Subsystem		->	0x%04X		子系统:%s\r\n", pOptionalHeader->Subsystem,szSubsystem);
+	PRINT_ERROR("	00014h	DllCharacteristics	->	0x%08X	特性\r\n", pOptionalHeader->DllCharacteristics);
+	struct DllCharacteristicsFlag
+	{
+		WORD flag;
+		const char* desc;
+	};
+	DllCharacteristicsFlag dllFlags[] =
+	{
+		{IMAGE_DLLCHARACTERISTICS_HIGH_ENTROPY_VA   		  ,"// Image can handle a high entropy 64-bit virtual address space."}				,
+		{ IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE 				  ,"// DLL can move." }															,
+		{ IMAGE_DLLCHARACTERISTICS_FORCE_INTEGRITY    		  ,"// Code Integrity Image" }														,
+		{ IMAGE_DLLCHARACTERISTICS_NX_COMPAT    				  ,"// Image is NX compatible" }												,
+		{ IMAGE_DLLCHARACTERISTICS_NO_ISOLATION 				  ,"// Image understands isolation and doesn't want it" }						,
+		{ IMAGE_DLLCHARACTERISTICS_NO_SEH       				  ,"// Image does not use SEH.  No SE handler may reside in this image" }		,
+		{ IMAGE_DLLCHARACTERISTICS_NO_BIND      				  ,"// Do not bind this image." }												,
+		{ IMAGE_DLLCHARACTERISTICS_APPCONTAINER 				  ,"// Image should execute in an AppContainer" }								,
+		{ IMAGE_DLLCHARACTERISTICS_WDM_DRIVER   				  ,"// Driver uses WDM model" }													,
+		{ IMAGE_DLLCHARACTERISTICS_GUARD_CF     				  ,"// Image supports Control Flow Guard."}										,
+		{IMAGE_DLLCHARACTERISTICS_TERMINAL_SERVER_AWARE			  ,"TERMINAL_SERVER_AWARE"}
+	};
+	for (size_t i = 0; i < sizeof(dllFlags) / sizeof(dllFlags[0]); i++)
+	{
+		if (pOptionalHeader->DllCharacteristics & dllFlags[i].flag)
+		{
+			PRINT_INFO("  FLAG 0x%04x info->%s\r\n", dllFlags[i].flag, dllFlags[i].desc);
+		}
+	}
+	PRINT_ERROR("	00014h	NumberOfRvaAndSizes	->	0x%08X	目录数量\r\n", pOptionalHeader->NumberOfRvaAndSizes);
 
+	for (size_t i = 0; i < IMAGE_NUMBEROF_DIRECTORY_ENTRIES; i++)
+	{
+		if (pOptionalHeader->DataDirectory[i].VirtualAddress != 0)
+		{
+			const char* szDataDirectory = "UNKNOW";
+			switch (i)
+			{
+				 case IMAGE_DIRECTORY_ENTRY_EXPORT        : szDataDirectory = "Export Directory"; break;
+				 case IMAGE_DIRECTORY_ENTRY_IMPORT: szDataDirectory = "Import Directory"; break;
+				 case IMAGE_DIRECTORY_ENTRY_RESOURCE: szDataDirectory = "Resource Directory"; break;
+				 case IMAGE_DIRECTORY_ENTRY_EXCEPTION: szDataDirectory = "Exception Directory"; break;
+				 case IMAGE_DIRECTORY_ENTRY_SECURITY: szDataDirectory = "Security Directory"; break;
+				 case IMAGE_DIRECTORY_ENTRY_BASERELOC: szDataDirectory = "Base Relocation Table"; break;
+				 case IMAGE_DIRECTORY_ENTRY_DEBUG: szDataDirectory = "Debug Directory"; break;
+				 case IMAGE_DIRECTORY_ENTRY_ARCHITECTURE: szDataDirectory = "Architecture Specific Data"; break;
+				 case IMAGE_DIRECTORY_ENTRY_GLOBALPTR: szDataDirectory = "RVA of GP"; break;
+				 case IMAGE_DIRECTORY_ENTRY_TLS: szDataDirectory = "TLS Directory"; break;
+				 case IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG: szDataDirectory = "Load Configuration Directory"; break;
+				 case IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT: szDataDirectory = "Bound Import Directory in headers"; break;
+				 case IMAGE_DIRECTORY_ENTRY_IAT: szDataDirectory = "Import Address Table"; break;
+				 case IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT: szDataDirectory = "Delay Load Import Descriptors"; break;
+				 case IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR: szDataDirectory = "COM Runtime descriptor";break;
+
+
+			}
+			PRINT_INFO("		VirtualAddress		->	0x%08x	Size->0x%08x	%s\r\n",
+				pOptionalHeader->DataDirectory[i].VirtualAddress,
+				pOptionalHeader->DataDirectory[i].Size,
+				szDataDirectory);
+		}
+	}
 }
 
 void CmdSection(const CHAR* param)
