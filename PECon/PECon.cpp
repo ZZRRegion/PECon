@@ -1,6 +1,8 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS
 #include<Windows.h>
 #include<stdio.h>
+#include<time.h>
+
 /*
 	DOS
 	DOS STUB
@@ -470,10 +472,20 @@ void CmdNt(const CHAR* param)
 	}
 	if (g_pNtHeaders->Signature != IMAGE_NT_SIGNATURE)
 	{
-		PRINT_ERROR("错误	->	无效的DOS签名（Expected:0x00004550 / Actual:0x%08x\r\n", g_pNtHeaders->Signature);
+		PRINT_ERROR("错误	->	无效的NT签名（Expected:0x00004550 / Actual:0x%08x\r\n", g_pNtHeaders->Signature);
 		return;
 	}
 	PRINT_TITLE("\n==== Nt Header Infomation ====\n\n");
+
+	PRINT_INFO("--------------\r\n");
+	PRINT_INFO("1.Signature\r\n");
+	PRINT_INFO("--------------\n\n");
+	PRINT_ERROR(" 0000h	Signature	->	0x%08x	//PE文件签名\r\n", g_pNtHeaders->Signature);
+	PRINT_INFO("\n");
+
+	PRINT_INFO("--------------\r\n");
+	PRINT_INFO("2.FileHeader\r\n");
+	PRINT_INFO("--------------\n\n");
 	/*
 		WORD    Machine;  IMAGE_FILE_MACHINE_I386
 		WORD    NumberOfSections;
@@ -484,11 +496,70 @@ void CmdNt(const CHAR* param)
 		WORD    Characteristics;  IMAGE_FILE_32BIT_MACHINE
 	*/
 	PIMAGE_FILE_HEADER pFileHeader = &g_pNtHeaders->FileHeader;
-	PRINT_INFO("	0000h	Machine					->		0x%04X\r\n", pFileHeader->Machine);
-	PRINT_INFO("	0002h	NumberOfSections			->		0x%04X\r\n", pFileHeader->NumberOfSections);
-	PRINT_INFO("	0004h	TimeDateStamp				->		0x%08X\r\n", pFileHeader->TimeDateStamp);
-	PRINT_INFO("	00010h	SizeOfOptionalHeader			->		0x%04X\r\n", pFileHeader->SizeOfOptionalHeader);
-	PRINT_INFO("	00012h	Characteristics				->		0x%04X\r\n", pFileHeader->Characteristics);
+	PRINT_ERROR("	0000h	Machine					->		0x%04X	运行平台\r\n", pFileHeader->Machine);
+	PRINT_ERROR("	0002h	NumberOfSections			->		0x%04X	节区数量\r\n", pFileHeader->NumberOfSections);
+	PRINT_INFO("	0004h	TimeDateStamp				->		0x%08X	时间戳\r\n", pFileHeader->TimeDateStamp);
+	/*time_t time = (time_t)pFileHeader->TimeDateStamp;
+	tm localTime = {0};
+	localtime_s(&localTime, &time);
+	CHAR timeBuffer[0xFF] = {0};
+	strftime(timeBuffer, sizeof(timeBuffer), "%Y-%m-%d %H:%M:%s", &localTime);
+	PRINT_INFO("	0004h	TimeDateStamp	->	%s\r\n", timeBuffer);*/
+	PRINT_ERROR("	00010h	SizeOfOptionalHeader			->		0x%04X	可选头字节数\r\n", pFileHeader->SizeOfOptionalHeader);
+	PRINT_INFO("	00012h	Characteristics				->		0x%04X	文件特性\r\n", pFileHeader->Characteristics);
+	PRINT_INFO("\n");
+
+	PRINT_INFO("--------------\r\n");
+	PRINT_INFO("3.OptionHeader\r\n");
+	PRINT_INFO("--------------\n\n");
+	
+
+	PRINT_TITLE("\n==== Nt Option Header Infomation ====\n\n");
+	PIMAGE_OPTIONAL_HEADER pOptionalHeader = &g_pNtHeaders->OptionalHeader;
+	/*
+	WORD    Magic;
+    BYTE    MajorLinkerVersion;
+    BYTE    MinorLinkerVersion;
+    DWORD   SizeOfCode;
+    DWORD   SizeOfInitializedData;
+    DWORD   SizeOfUninitializedData;
+    DWORD   AddressOfEntryPoint;
+    DWORD   BaseOfCode;
+    DWORD   BaseOfData;
+
+	DWORD   ImageBase;
+	DWORD   SectionAlignment;
+	DWORD   FileAlignment;
+	WORD    MajorOperatingSystemVersion;
+	WORD    MinorOperatingSystemVersion;
+	WORD    MajorImageVersion;
+	WORD    MinorImageVersion;
+	WORD    MajorSubsystemVersion;
+	WORD    MinorSubsystemVersion;
+	DWORD   Win32VersionValue;
+	DWORD   SizeOfImage;
+	DWORD   SizeOfHeaders;
+	DWORD   CheckSum;
+	*/
+	PRINT_INFO("	00014h	Magic	->	0x%04X	表示文件类型：0x010B(32位PE),0x020B(64位PE)\r\n", pOptionalHeader->Magic);
+	PRINT_INFO("	00014h	MajorLinkerVersion	->	%d	链接器的主版本号\r\n", pOptionalHeader->MajorLinkerVersion);
+	PRINT_INFO("	00014h	MinorLinkerVersion	->	%d	链接器的次版本号\r\n", pOptionalHeader->MinorLinkerVersion);
+	PRINT_INFO("	00014h	SizeOfCode	->	0x%04X	所有代码节的总大小（通常位.text段）文件对齐后的大小\r\n", pOptionalHeader->SizeOfCode);
+	PRINT_INFO("	00014h	SizeOfInitializedData	->	0x%08X	已初始化数据的节的总大小（如.data段)\r\n", pOptionalHeader->SizeOfInitializedData);
+	PRINT_INFO("	00014h	SizeOfUninitializedData	->	0x%04X	未初始化数据的节的总大小（如.bss段）\r\n", pOptionalHeader->SizeOfUninitializedData);
+	PRINT_INFO("	00014h	AddressOfEntryPoint	->	0x%08X	程序入口点（RVA地址），指向main或DllMain\r\n", pOptionalHeader->AddressOfEntryPoint);
+	PRINT_INFO("	00014h	BaseOfCode	->	0x%08X	代码段的起始RVA\r\n", pOptionalHeader->BaseOfCode);
+	PRINT_INFO("	00014h	BaseOfData	->	0x%08X	数据段的起始RVA\r\n", pOptionalHeader->BaseOfData);
+	
+	PRINT_INFO("	00014h	ImageBase	->	0x%08X	文件加载到内存时的首选基地址（如0x400000）\r\n", pOptionalHeader->ImageBase);
+	PRINT_INFO("	00014h	SectionAlignment	->	0x%08X	内存中段的对齐粒度（通常0x1000即4KB)\r\n", pOptionalHeader->SectionAlignment);
+	PRINT_INFO("	00014h	FileAlignment	->	0x%08X	文件中段的对齐粒度（通常0x200即512字节）\r\n", pOptionalHeader->FileAlignment);
+	PRINT_INFO("	00014h	SizeOfImage	->	0x%08X	整个PE文件映射到内存后的总大小\r\n", pOptionalHeader->SizeOfImage);
+	PRINT_INFO("	00014h	SizeOfHeaders	->	0x%08X	所有头结构（DOS+PE头+节表）的总大小（按FileAlign对齐）\r\n", pOptionalHeader->SizeOfHeaders);
+	PRINT_INFO("	00014h	ImageBase	->	0x%08X	文件加载到内存时的首选基地址（如0x400000）\r\n", pOptionalHeader->ImageBase);
+	PRINT_INFO("	00014h	ImageBase	->	0x%08X	文件加载到内存时的首选基地址（如0x400000）\r\n", pOptionalHeader->ImageBase);
+	PRINT_INFO("	00014h	ImageBase	->	0x%08X	文件加载到内存时的首选基地址（如0x400000）\r\n", pOptionalHeader->ImageBase);
+
 }
 
 void CmdSection(const CHAR* param)
