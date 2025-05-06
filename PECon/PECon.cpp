@@ -640,6 +640,7 @@ void CmdNt(const CHAR* param)
 				pOptionalHeader->DataDirectory[i].VirtualAddress,
 				pOptionalHeader->DataDirectory[i].Size,
 				szDataDirectory);
+
 		}
 	}
 }
