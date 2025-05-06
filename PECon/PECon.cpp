@@ -459,13 +459,36 @@ void CmdDos(const CHAR* param)
 	PRINT_INFO("	0026h	e_oeminfo		->		0x%04x		//OEM信息\r\n", g_pDosHeader->e_oeminfo);
 	PRINT_INFO("	0028h	e_res2[10]		->		0x%04x		//保留字\r\n", g_pDosHeader->e_res2[0]);
 	PRINT_ERROR("	003Ch	e_lfanew		->		0x%08x	//PE头相对于文件的偏移地址\r\n\n", g_pDosHeader->e_lfanew);
-
-
-
 }
 
 void CmdNt(const CHAR* param)
 {
+	if (g_pNtHeaders == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'命令加载PE文件\r\n");
+		return;
+	}
+	if (g_pNtHeaders->Signature != IMAGE_NT_SIGNATURE)
+	{
+		PRINT_ERROR("错误	->	无效的DOS签名（Expected:0x00004550 / Actual:0x%08x\r\n", g_pNtHeaders->Signature);
+		return;
+	}
+	PRINT_TITLE("\n==== Nt Header Infomation ====\n\n");
+	/*
+		WORD    Machine;  IMAGE_FILE_MACHINE_I386
+		WORD    NumberOfSections;
+		DWORD   TimeDateStamp;
+		DWORD   PointerToSymbolTable;
+		DWORD   NumberOfSymbols;
+		WORD    SizeOfOptionalHeader;
+		WORD    Characteristics;  IMAGE_FILE_32BIT_MACHINE
+	*/
+	PIMAGE_FILE_HEADER pFileHeader = &g_pNtHeaders->FileHeader;
+	PRINT_INFO("	0000h	Machine					->		0x%04X\r\n", pFileHeader->Machine);
+	PRINT_INFO("	0002h	NumberOfSections			->		0x%04X\r\n", pFileHeader->NumberOfSections);
+	PRINT_INFO("	0004h	TimeDateStamp				->		0x%08X\r\n", pFileHeader->TimeDateStamp);
+	PRINT_INFO("	00010h	SizeOfOptionalHeader			->		0x%04X\r\n", pFileHeader->SizeOfOptionalHeader);
+	PRINT_INFO("	00012h	Characteristics				->		0x%04X\r\n", pFileHeader->Characteristics);
 }
 
 void CmdSection(const CHAR* param)
