@@ -427,6 +427,41 @@ void CmdInfo(const CHAR* param)
 
 void CmdDos(const CHAR* param)
 {
+	if (g_pDosHeader == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'命令加载PE文件\r\n");
+		return;
+	}
+	if (g_pDosHeader->e_magic != IMAGE_DOS_SIGNATURE)
+	{
+		PRINT_ERROR("错误	->	无效的DOS签名（Expected:0x5a4d / Actual:0x%04x\r\n", g_pDosHeader->e_magic);
+		return;
+	}
+
+	PRINT_TITLE("\n==== DOS Header Infomation ====\n\n");
+	
+	PRINT_ERROR("	0000h	e_magic			->		0x%04x		//EXE标志(MZ)\r\n", g_pDosHeader->e_magic);
+	PRINT_INFO("	0002h	e_cblp			->		0x%04x		//文件最后页的字节数\r\n", g_pDosHeader->e_cblp);
+	PRINT_INFO("	0004h	e_cp			->		0x%04x		//文件总页数\r\n", g_pDosHeader->e_cp);
+	PRINT_INFO("	0006h	e_crlc			->		0x%04x		//重定位的条目数\r\n", g_pDosHeader->e_crlc);
+	PRINT_INFO("	0008h	e_cparhdr		->		0x%04x		//头部大小(段落)\r\n", g_pDosHeader->e_cparhdr);
+	PRINT_INFO("	000Ah	e_minalloc		->		0x%04x		//所需最小的附加段\r\n", g_pDosHeader->e_minalloc);
+	PRINT_INFO("	000Ch	e_maxalloc		->		0x%04x		//所需最大的附加段\r\n", g_pDosHeader->e_maxalloc);
+	PRINT_INFO("	000Eh	e_ss			->		0x%04x		//初始的SS值\r\n", g_pDosHeader->e_ss);
+	PRINT_INFO("	0010h	e_sp			->		0x%04x		//初始的SP值\r\n", g_pDosHeader->e_sp);
+	PRINT_INFO("	0012h	e_csum			->		0x%04x		//检验和\r\n", g_pDosHeader->e_csum);
+	PRINT_INFO("	0014h	e_ip			->		0x%04x		//初始的IP值\r\n", g_pDosHeader->e_ip);
+	PRINT_INFO("	0016h	e_cs			->		0x%04x		//初始的CS值\r\n", g_pDosHeader->e_cs);
+	PRINT_INFO("	0018h	e_lfarlc		->		0x%04x		//重定位表的偏移\r\n", g_pDosHeader->e_lfarlc);
+	PRINT_INFO("	001Ah	e_ovno			->		0x%04x		//覆盖号\r\n", g_pDosHeader->e_ovno);
+	PRINT_INFO("	001Ch	e_res[4]		->		0x%04x		//保留字\r\n", g_pDosHeader->e_res[0]);
+	PRINT_INFO("	0024h	e_oemid			->		0x%04x		//OEM表示\r\n", g_pDosHeader->e_oemid);
+	PRINT_INFO("	0026h	e_oeminfo		->		0x%04x		//OEM信息\r\n", g_pDosHeader->e_oeminfo);
+	PRINT_INFO("	0028h	e_res2[10]		->		0x%04x		//保留字\r\n", g_pDosHeader->e_res2[0]);
+	PRINT_ERROR("	003Ch	e_lfanew		->		0x%08x	//PE头相对于文件的偏移地址\r\n\n", g_pDosHeader->e_lfanew);
+
+
+
 }
 
 void CmdNt(const CHAR* param)
