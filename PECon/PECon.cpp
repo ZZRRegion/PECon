@@ -513,6 +513,37 @@ void CmdNt(const CHAR* param)
 	PRINT_INFO("	0004h	TimeDateStamp				->		0x%08X	时间戳:%s\r\n", pFileHeader->TimeDateStamp, timeBuffer);
 	PRINT_ERROR("	00010h	SizeOfOptionalHeader			->		0x%04X	可选头字节数\r\n", pFileHeader->SizeOfOptionalHeader);
 	PRINT_INFO("	00012h	Characteristics				->		0x%04X	文件特性\r\n", pFileHeader->Characteristics);
+	
+	struct CharacteristicsFlag
+	{
+		WORD flag;
+		const char* desc;
+	};
+	CharacteristicsFlag flags[] =
+	{
+		{IMAGE_FILE_RELOCS_STRIPPED					  ,"// Relocation info stripped from file."},
+		{IMAGE_FILE_EXECUTABLE_IMAGE				  ,"// File is executable  (i.e. no unresolved external references)."},
+		{IMAGE_FILE_LINE_NUMS_STRIPPED				  ,"// Line nunbers stripped from file."},
+		{IMAGE_FILE_LOCAL_SYMS_STRIPPED				  ,"// Local symbols stripped from file."},
+		{IMAGE_FILE_AGGRESIVE_WS_TRIM				  ,"// Aggressively trim working set"},
+		{IMAGE_FILE_LARGE_ADDRESS_AWARE				  ,"// App can handle >2gb addresses"},
+		{IMAGE_FILE_BYTES_REVERSED_LO				  ,"// Bytes of machine word are reversed."},
+		{IMAGE_FILE_32BIT_MACHINE					  ,"// 32 bit word machine."},
+		{IMAGE_FILE_DEBUG_STRIPPED					  ,"// Debugging info stripped from file in .DBG file"},
+		{IMAGE_FILE_REMOVABLE_RUN_FROM_SWAP			  ,"// If Image is on removable media, copy and run from the swap file."},
+		{IMAGE_FILE_NET_RUN_FROM_SWAP				  ,"// If Image is on Net, copy and run from the swap file."},
+		{IMAGE_FILE_SYSTEM							  ,"// System File."},
+		{IMAGE_FILE_DLL								  ,"// File is a DLL."},
+		{IMAGE_FILE_UP_SYSTEM_ONLY					  ,"// File should only be run on a UP machine"},
+		{IMAGE_FILE_BYTES_REVERSED_HI				  ,"// Bytes of machine word are reversed."},
+	};
+	for (size_t i = 0; i < sizeof(flags) / sizeof(flags[0]); i++)
+	{
+		if (pFileHeader->Characteristics & flags[i].flag)
+		{
+			PRINT_INFO("		FLAG -> 0x%04x	INFO -> %s\r\n", flags[i].flag, flags[i].desc);
+		}
+	}
 	PRINT_INFO("\n");
 
 	PRINT_INFO("--------------\r\n");
@@ -547,24 +578,23 @@ void CmdNt(const CHAR* param)
 	DWORD   SizeOfHeaders;
 	DWORD   CheckSum;
 	*/
-	PRINT_INFO("	00014h	Magic	->	0x%04X	表示文件类型：0x010B(32位PE),0x020B(64位PE)\r\n", pOptionalHeader->Magic);
-	PRINT_INFO("	00014h	MajorLinkerVersion	->	%d	链接器的主版本号\r\n", pOptionalHeader->MajorLinkerVersion);
-	PRINT_INFO("	00014h	MinorLinkerVersion	->	%d	链接器的次版本号\r\n", pOptionalHeader->MinorLinkerVersion);
-	PRINT_INFO("	00014h	SizeOfCode	->	0x%04X	所有代码节的总大小（通常位.text段）文件对齐后的大小\r\n", pOptionalHeader->SizeOfCode);
+	PRINT_INFO("	00014h	Magic			->	0x%04X		表示文件类型：0x010B(32位PE),0x020B(64位PE)\r\n", pOptionalHeader->Magic);
+	PRINT_INFO("	00014h	MajorLinkerVersion	->	%d		链接器的主版本号\r\n", pOptionalHeader->MajorLinkerVersion);
+	PRINT_INFO("	00014h	MinorLinkerVersion	->	%d		链接器的次版本号\r\n", pOptionalHeader->MinorLinkerVersion);
+	PRINT_INFO("	00014h	SizeOfCode		->	0x%04X		所有代码节的总大小（通常位.text段）文件对齐后的大小\r\n", pOptionalHeader->SizeOfCode);
 	PRINT_INFO("	00014h	SizeOfInitializedData	->	0x%08X	已初始化数据的节的总大小（如.data段)\r\n", pOptionalHeader->SizeOfInitializedData);
-	PRINT_INFO("	00014h	SizeOfUninitializedData	->	0x%04X	未初始化数据的节的总大小（如.bss段）\r\n", pOptionalHeader->SizeOfUninitializedData);
+	PRINT_INFO("	00014h	SizeOfUninitializedData	->	0x%04X		未初始化数据的节的总大小（如.bss段）\r\n", pOptionalHeader->SizeOfUninitializedData);
 	PRINT_INFO("	00014h	AddressOfEntryPoint	->	0x%08X	程序入口点（RVA地址），指向main或DllMain\r\n", pOptionalHeader->AddressOfEntryPoint);
-	PRINT_INFO("	00014h	BaseOfCode	->	0x%08X	代码段的起始RVA\r\n", pOptionalHeader->BaseOfCode);
-	PRINT_INFO("	00014h	BaseOfData	->	0x%08X	数据段的起始RVA\r\n", pOptionalHeader->BaseOfData);
+	PRINT_INFO("	00014h	BaseOfCode		->	0x%08X	代码段的起始RVA\r\n", pOptionalHeader->BaseOfCode);
+	PRINT_INFO("	00014h	BaseOfData		->	0x%08X	数据段的起始RVA\r\n", pOptionalHeader->BaseOfData);
 	
-	PRINT_INFO("	00014h	ImageBase	->	0x%08X	文件加载到内存时的首选基地址（如0x400000）\r\n", pOptionalHeader->ImageBase);
+	PRINT_INFO("	00014h	ImageBase		->	0x%08X	文件加载到内存时的首选基地址（如0x400000）\r\n", pOptionalHeader->ImageBase);
 	PRINT_INFO("	00014h	SectionAlignment	->	0x%08X	内存中段的对齐粒度（通常0x1000即4KB)\r\n", pOptionalHeader->SectionAlignment);
-	PRINT_INFO("	00014h	FileAlignment	->	0x%08X	文件中段的对齐粒度（通常0x200即512字节）\r\n", pOptionalHeader->FileAlignment);
-	PRINT_INFO("	00014h	SizeOfImage	->	0x%08X	整个PE文件映射到内存后的总大小\r\n", pOptionalHeader->SizeOfImage);
-	PRINT_INFO("	00014h	SizeOfHeaders	->	0x%08X	所有头结构（DOS+PE头+节表）的总大小（按FileAlign对齐）\r\n", pOptionalHeader->SizeOfHeaders);
-	PRINT_INFO("	00014h	ImageBase	->	0x%08X	文件加载到内存时的首选基地址（如0x400000）\r\n", pOptionalHeader->ImageBase);
-	PRINT_INFO("	00014h	ImageBase	->	0x%08X	文件加载到内存时的首选基地址（如0x400000）\r\n", pOptionalHeader->ImageBase);
-	PRINT_INFO("	00014h	ImageBase	->	0x%08X	文件加载到内存时的首选基地址（如0x400000）\r\n", pOptionalHeader->ImageBase);
+	PRINT_INFO("	00014h	FileAlignment		->	0x%08X	文件中段的对齐粒度（通常0x200即512字节）\r\n", pOptionalHeader->FileAlignment);
+	PRINT_INFO("	00014h	SizeOfImage		->	0x%08X	整个PE文件映射到内存后的总大小\r\n", pOptionalHeader->SizeOfImage);
+	PRINT_INFO("	00014h	SizeOfHeaders		->	0x%08X	所有头结构（DOS+PE头+节表）的总大小（按FileAlign对齐）\r\n", pOptionalHeader->SizeOfHeaders);
+	PRINT_INFO("	00014h	Subsystem		->	0x%04X		子系统\r\n", pOptionalHeader->Subsystem);
+	PRINT_INFO("	00014h	DllCharacteristics	->	0x%08X	特性\r\n", pOptionalHeader->DllCharacteristics);
 
 }
 
