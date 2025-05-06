@@ -311,6 +311,7 @@ VOID ProcessCommand()
 
 int main()
 {
+	CmdLoad("D:\\DriverDevelop\\InstDrv\\InstDrv.exe");
 	while(1)
 	{
 		//D:\DriverDevelop\InstDrv\InstDrv.exe
@@ -496,15 +497,20 @@ void CmdNt(const CHAR* param)
 		WORD    Characteristics;  IMAGE_FILE_32BIT_MACHINE
 	*/
 	PIMAGE_FILE_HEADER pFileHeader = &g_pNtHeaders->FileHeader;
-	PRINT_ERROR("	0000h	Machine					->		0x%04X	运行平台\r\n", pFileHeader->Machine);
+	const char* machineType = "UNKNOW";
+	switch (pFileHeader->Machine)
+	{
+	case IMAGE_FILE_MACHINE_I386: machineType = "x86"; break;
+	case IMAGE_FILE_MACHINE_AMD64: machineType = "x64"; break;
+	}
+	PRINT_ERROR("	0000h	Machine					->		0x%04X	运行平台:%s\r\n", pFileHeader->Machine, machineType);
 	PRINT_ERROR("	0002h	NumberOfSections			->		0x%04X	节区数量\r\n", pFileHeader->NumberOfSections);
-	PRINT_INFO("	0004h	TimeDateStamp				->		0x%08X	时间戳\r\n", pFileHeader->TimeDateStamp);
-	/*time_t time = (time_t)pFileHeader->TimeDateStamp;
+	time_t time = (time_t)pFileHeader->TimeDateStamp;
 	tm localTime = {0};
 	localtime_s(&localTime, &time);
 	CHAR timeBuffer[0xFF] = {0};
-	strftime(timeBuffer, sizeof(timeBuffer), "%Y-%m-%d %H:%M:%s", &localTime);
-	PRINT_INFO("	0004h	TimeDateStamp	->	%s\r\n", timeBuffer);*/
+	strftime(timeBuffer, sizeof(timeBuffer), "%Y-%m-%d %H:%M:%S", &localTime);
+	PRINT_INFO("	0004h	TimeDateStamp				->		0x%08X	时间戳:%s\r\n", pFileHeader->TimeDateStamp, timeBuffer);
 	PRINT_ERROR("	00010h	SizeOfOptionalHeader			->		0x%04X	可选头字节数\r\n", pFileHeader->SizeOfOptionalHeader);
 	PRINT_INFO("	00012h	Characteristics				->		0x%04X	文件特性\r\n", pFileHeader->Characteristics);
 	PRINT_INFO("\n");
