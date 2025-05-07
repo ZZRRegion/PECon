@@ -34,7 +34,7 @@ PBYTE g_lpFileBuffer = nullptr;
 PIMAGE_DOS_HEADER g_pDosHeader = nullptr;
 PIMAGE_NT_HEADERS g_pNtHeaders = nullptr;
 PIMAGE_SECTION_HEADER g_pSectionHeader = nullptr;
-
+const char* fileName = nullptr;
 // ==============================================
 VOID ShowMenu();
 VOID ProcessCommand();
@@ -279,7 +279,10 @@ VOID ShowMenu()
 	PRINT_MENU("    clear		- 清屏\n");
 	PRINT_MENU("    help		- 获取帮助\n");
 	PRINT_MENU("    exit		- 退出程序\n");
-
+	if (fileName != nullptr)
+	{
+		PRINT_MENU("当前加载文件：%s\n", fileName);
+	}
 	PRINT_INFO("请输入命令> ");
 }
 VOID ProcessCommand()
@@ -376,7 +379,9 @@ DWORD FoaToRva(DWORD dwFoa)
 
 int main()
 {
-	CmdLoad("D:\\DriverDevelop\\InstDrv\\InstDrv.exe");
+	const char* fileName = R"(C:\Users\stdio\source\repos\PECon\Debug\PEDll.dll)";
+	//fileName = "D:\\DriverDevelop\\InstDrv\\InstDrv.exe";
+	CmdLoad(fileName);
 	while(1)
 	{
 		//D:\DriverDevelop\InstDrv\InstDrv.exe
@@ -478,7 +483,7 @@ void CmdLoad(const CHAR* param)
 		g_pNtHeaders->FileHeader.SizeOfOptionalHeader;
 
 	g_pSectionHeader = (PIMAGE_SECTION_HEADER)(g_lpFileBuffer + dwSectionHeaderOffset);
-
+	fileName = param;
 	//释放资源
 	CloseHandle(g_hFile);
 	g_hFile = INVALID_HANDLE_VALUE;
@@ -774,14 +779,50 @@ void CmdSection(const CHAR* param)
 			}
 		}
 		PRINT_INFO("================================================================================\n");
-	}		 
+	}
+	PRINT_INFO("\nSummary\n");
+	PRINT_INFO("Total Section:%d\n", g_pNtHeaders->FileHeader.NumberOfSections);
+
+	DWORD totalVirtualSize = 0;
+	DWORD totalRawSize = 0;
+	for (size_t i = 0; i < g_pNtHeaders->FileHeader.NumberOfSections; i++)
+	{
+		totalVirtualSize += g_pSectionHeader[i].Misc.VirtualSize;
+		totalRawSize += g_pSectionHeader[i].SizeOfRawData;
+	}
+
+	PRINT_INFO("Total Virtual Size:%d\n", totalVirtualSize);
+	PRINT_INFO("Total Raw Size:%d\n", totalRawSize);
+
 }			 
 void CmdImport(const CHAR* param)
 {
+	if (g_pSectionHeader == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'加载PE文件\r\n");
+		return;
+	}
 }
 
 void CmdExport(const CHAR* param)
 {
+	//IMAGE_DIRECTORY_ENTRY_EXPORT
+	/*
+	typedef struct _IMAGE_EXPORT_DIRECTORY {
+    DWORD   Characteristics;
+    DWORD   TimeDateStamp;
+    WORD    MajorVersion;
+    WORD    MinorVersion;
+    DWORD   Name;
+    DWORD   Base;
+    DWORD   NumberOfFunctions;
+    DWORD   NumberOfNames;
+    DWORD   AddressOfFunctions;     // RVA from base of image
+    DWORD   AddressOfNames;         // RVA from base of image
+    DWORD   AddressOfNameOrdinals;  // RVA from base of image
+	} IMAGE_EXPORT_DIRECTORY, *PIMAGE_EXPORT_DIRECTORY;
+	*/
+
 }
 
 void CmdRelocation(const CHAR* param)
@@ -904,6 +945,7 @@ void FreeLoadedFile()
 	g_pDosHeader = nullptr;
 	g_pNtHeaders = nullptr;
 	g_pSectionHeader = nullptr;
+	fileName = nullptr;
 }
 
 CmdHandler FindCmdHandler(const CHAR* cmd)
