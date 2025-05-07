@@ -36,7 +36,10 @@ PIMAGE_NT_HEADERS g_pNtHeaders = nullptr;
 PIMAGE_SECTION_HEADER g_pSectionHeader = nullptr;
 
 // ==============================================
-
+VOID ShowMenu();
+VOID ProcessCommand();
+DWORD RvaToFoa(DWORD dwRva);
+DWORD FoaToRva(DWORD dwFoa);
 void CmdLoad(CONST CHAR* param);
 void CmdInfo(CONST CHAR* param);
 void CmdDos(CONST CHAR* param);
@@ -45,6 +48,8 @@ void CmdSection(CONST CHAR* param);
 void CmdImport(CONST CHAR* param);
 void CmdExport(CONST CHAR* param);
 void CmdRelocation(CONST CHAR* param);
+void CmdRvaToFoa(CONST CHAR* param);
+void CmdFoaToRva(CONST CHAR* param);
 void CmdClear(CONST CHAR* param);
 void CmdHelp(CONST CHAR* param);
 void CmdExit(CONST CHAR* param);
@@ -69,6 +74,8 @@ static const CmdEntry CMD_TABLE[] =
 	{"import",		CmdImport},
 	{"export",		CmdExport},
 	{"relocation",	CmdRelocation},
+	{"rva",			CmdRvaToFoa },
+	{"foa",			CmdFoaToRva},
 	{"clear",		CmdClear},
 	{"help",		CmdHelp},
 	{"exit",		CmdExit},
@@ -267,6 +274,8 @@ VOID ShowMenu()
 	PRINT_MENU("    import		- 显示IMPORT数据\n");
 	PRINT_MENU("    export		- 显示EXPORT\n");
 	PRINT_MENU("    relocation		- 显示RELOCATION数据\n");
+	PRINT_MENU("    rva		- RVA	->	FOA\n");
+	PRINT_MENU("    foa		- FOA	->	RVA\n");
 	PRINT_MENU("    clear		- 清屏\n");
 	PRINT_MENU("    help		- 获取帮助\n");
 	PRINT_MENU("    exit		- 退出程序\n");
@@ -306,6 +315,62 @@ VOID ProcessCommand()
 	{
 		PRINT_ERROR("\n错误 -> 未知指令\r\n");
 	}
+}
+DWORD RvaToFoa(DWORD dwRva)
+{
+	if (g_pSectionHeader == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'命令加载\n");
+		return 0;
+	}
+	if (dwRva < g_pNtHeaders->OptionalHeader.SizeOfHeaders)
+	{
+		return dwRva;
+	}
+
+	for (size_t i = 0; i < g_pNtHeaders->FileHeader.NumberOfSections; i++)
+	{
+		// IMAGEBASE
+		// VIRTUALADDRESS
+		// RVA
+		// FOA
+		DWORD dwStartRva = g_pSectionHeader[i].VirtualAddress;
+		DWORD dwEndRva = g_pSectionHeader[i].VirtualAddress + g_pSectionHeader[i].Misc.VirtualSize;
+		if (dwRva >= dwStartRva && dwRva < dwEndRva)
+		{
+			DWORD dwOffset = dwRva - dwStartRva;
+			return g_pSectionHeader[i].PointerToRawData + dwOffset;
+		}
+	}
+	return 0;
+}
+DWORD FoaToRva(DWORD dwFoa)
+{
+	if (g_pSectionHeader == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'命令加载\n");
+		return 0;
+	}
+	if (dwFoa < g_pNtHeaders->OptionalHeader.SizeOfHeaders)
+	{
+		return dwFoa;
+	}
+
+	for (size_t i = 0; i < g_pNtHeaders->FileHeader.NumberOfSections; i++)
+	{
+		// IMAGEBASE
+		// VIRTUALADDRESS
+		// RVA
+		// FOA
+		DWORD dwStartFoa = g_pSectionHeader[i].PointerToRawData;
+		DWORD dwEndFoa = g_pSectionHeader[i].PointerToRawData + g_pSectionHeader[i].SizeOfRawData;
+		if (dwFoa >= dwStartFoa && dwFoa < dwEndFoa)
+		{
+			DWORD dwOffset = dwFoa - dwStartFoa;
+			return g_pSectionHeader[i].VirtualAddress + dwOffset;
+		}
+	}
+	return 0;
 }
 // =======================================================
 
@@ -647,6 +712,23 @@ void CmdNt(const CHAR* param)
 
 void CmdSection(const CHAR* param)
 {
+	/*
+	typedef struct _IMAGE_SECTION_HEADER {
+    BYTE    Name[IMAGE_SIZEOF_SHORT_NAME];
+    union {
+            DWORD   PhysicalAddress;
+            DWORD   VirtualSize;
+    } Misc;
+    DWORD   VirtualAddress;
+    DWORD   SizeOfRawData;
+    DWORD   PointerToRawData;
+    DWORD   PointerToRelocations;
+    DWORD   PointerToLinenumbers;
+    WORD    NumberOfRelocations;
+    WORD    NumberOfLinenumbers;
+    DWORD   Characteristics;
+	} IMAGE_SECTION_HEADER, *PIMAGE_SECTION_HEADER;
+	*/
 }
 
 void CmdImport(const CHAR* param)
@@ -658,6 +740,14 @@ void CmdExport(const CHAR* param)
 }
 
 void CmdRelocation(const CHAR* param)
+{
+}
+
+void CmdRvaToFoa(const CHAR* param)
+{
+}
+
+void CmdFoaToRva(const CHAR* param)
 {
 }
 
