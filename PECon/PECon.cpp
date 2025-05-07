@@ -729,8 +729,53 @@ void CmdSection(const CHAR* param)
     DWORD   Characteristics;
 	} IMAGE_SECTION_HEADER, *PIMAGE_SECTION_HEADER;
 	*/
-}
-
+	if (g_pSectionHeader == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'加载PE文件\r\n");
+		return;
+	}
+	PRINT_TITLE("\n==== Section Header Information ===\n\n");
+	struct SectionFlag
+	{
+		DWORD flag;
+		CONST CHAR* desc;
+	};
+	SectionFlag scnFlags[] =
+	{
+		{IMAGE_SCN_CNT_CODE              , "Section contains code."},
+		{IMAGE_SCN_CNT_INITIALIZED_DATA  , "Section contains initialized data."},
+		{IMAGE_SCN_CNT_UNINITIALIZED_DATA, "Section contains uninitialized data."},
+		{IMAGE_SCN_LNK_NRELOC_OVFL       , "Section contains extended relocations."},
+		{IMAGE_SCN_MEM_DISCARDABLE       , "Section can be discarded."},
+		{IMAGE_SCN_MEM_NOT_CACHED        , "Section is not cachable."},
+		{IMAGE_SCN_MEM_NOT_PAGED         , "Section is not pageable."},
+		{IMAGE_SCN_MEM_SHARED			 , "Section is shareable."},
+		{IMAGE_SCN_MEM_EXECUTE			 , "Section is executable."},
+		{IMAGE_SCN_MEM_READ				 , "Section is readable."},
+		{IMAGE_SCN_MEM_WRITE             , "Section is writeable."}
+	};
+	for (size_t i = 0; i < g_pNtHeaders->FileHeader.NumberOfSections; i++)
+	{
+		PIMAGE_SECTION_HEADER pSection = &g_pSectionHeader[i];
+		CHAR szName[9] = {};
+		memcpy(szName, pSection->Name, IMAGE_SIZEOF_SHORT_NAME);
+		PRINT_INFO("===================================%s========================================\n", szName);
+		PRINT_INFO("	0004h	Name		->	%s		//节区名称\r\n", szName);
+		PRINT_INFO("	0004h	VirtualSize	->	0x%08x	//RVA大小\r\n", pSection->Misc.VirtualSize);
+		PRINT_INFO("	0004h	VirtualAddress	->	0x%08x	//RVA起始\r\n", pSection->VirtualAddress);
+		PRINT_INFO("	0004h	SizeOfRawData	->	0x%08x	//FOA大小\r\n", pSection->SizeOfRawData);
+		PRINT_INFO("	0004h	PointerToRawData->	0x%08x	//FOA起始\r\n", pSection->PointerToRawData);
+		PRINT_INFO("	0004h	Characteristics	->	0x%08x	//节区属性\r\n", pSection->Characteristics);
+		for (size_t i = 0; i < sizeof(scnFlags) / sizeof(scnFlags[0]); i++)
+		{
+			if (pSection->Characteristics & scnFlags[i].flag)
+			{
+				PRINT_ERROR("		FLAG->0x%08x	INFO->%s\n", scnFlags[i].flag, scnFlags[i].desc);
+			}
+		}
+		PRINT_INFO("================================================================================\n");
+	}		 
+}			 
 void CmdImport(const CHAR* param)
 {
 }
