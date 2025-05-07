@@ -802,6 +802,7 @@ void CmdImport(const CHAR* param)
 		PRINT_ERROR("错误	->	请先使用'load'加载PE文件\r\n");
 		return;
 	}
+	
 }
 
 void CmdExport(const CHAR* param)
@@ -822,6 +823,24 @@ void CmdExport(const CHAR* param)
     DWORD   AddressOfNameOrdinals;  // RVA from base of image
 	} IMAGE_EXPORT_DIRECTORY, *PIMAGE_EXPORT_DIRECTORY;
 	*/
+	if (g_pNtHeaders == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'加载PE文件\r\n");
+		return;
+	}
+	PRINT_TITLE("\n==== Export Information ====\n");
+	IMAGE_DATA_DIRECTORY exportDir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+	PRINT_INFO("VirtualAddress->0x%08X	Size->0x%08X\n\n", exportDir.VirtualAddress, exportDir.Size);
+	DWORD dwFoa = RvaToFoa(exportDir.VirtualAddress);
+	PIMAGE_EXPORT_DIRECTORY pExport = (PIMAGE_EXPORT_DIRECTORY)(g_lpFileBuffer + dwFoa);
+	PRINT_INFO("0000h	Name			->	0x%08X\n", pExport->Name);
+	PRINT_INFO("0000h	Base			->	0x%08X\n", pExport->Base);
+	PRINT_INFO("0000h	NumberOfFunctions	->	0x%08X\n", pExport->NumberOfFunctions);
+	PRINT_INFO("0000h	NumberOfNames		->	0x%08X\n", pExport->NumberOfNames);
+	PRINT_INFO("0000h	AddressOfFunctions	->	0x%08X\n", pExport->AddressOfFunctions);
+	PRINT_INFO("0000h	AddressOfNames		->	0x%08X\n", pExport->AddressOfNames);
+	PRINT_INFO("0000h	AddressOfNameOrdinals	->	0x%08X\n", pExport->AddressOfNameOrdinals);
+
 
 }
 
