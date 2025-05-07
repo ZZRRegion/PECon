@@ -833,7 +833,9 @@ void CmdExport(const CHAR* param)
 	PRINT_INFO("VirtualAddress->0x%08X	Size->0x%08X\n\n", exportDir.VirtualAddress, exportDir.Size);
 	DWORD dwFoa = RvaToFoa(exportDir.VirtualAddress);
 	PIMAGE_EXPORT_DIRECTORY pExport = (PIMAGE_EXPORT_DIRECTORY)(g_lpFileBuffer + dwFoa);
-	PRINT_INFO("0000h	Name			->	0x%08X\n", pExport->Name);
+	dwFoa = RvaToFoa(pExport->Name);
+	const char* szName = (const char*)(g_lpFileBuffer + dwFoa);
+	PRINT_INFO("0000h	Name			->	0x%08X	导出名称：%s\n", pExport->Name, szName);
 	PRINT_INFO("0000h	Base			->	0x%08X\n", pExport->Base);
 	PRINT_INFO("0000h	NumberOfFunctions	->	0x%08X\n", pExport->NumberOfFunctions);
 	PRINT_INFO("0000h	NumberOfNames		->	0x%08X\n", pExport->NumberOfNames);
