@@ -745,10 +745,88 @@ void CmdRelocation(const CHAR* param)
 
 void CmdRvaToFoa(const CHAR* param)
 {
+	if (g_pSectionHeader == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'命令加载PE文件\r\n");
+		return;
+	}
+	if (param == NULL || *param == '\0')
+	{
+		PRINT_ERROR("错误	->	请输入指定格式地址（格式：1000 / 0x1000)\r\n");
+		PRINT_ERROR("示例	->	rva 1000 / rva 0x1000\r\n");
+		return;
+	}
+	DWORD dwRva = 0;
+	if (sscanf(param, "0x%x", &dwRva) != 1 && sscanf(param, "%x", &dwRva) != 1)
+	{
+		PRINT_ERROR("错误	->	无效的地址格式\r\n");
+		PRINT_ERROR("示例	->	rva 1000 / rva 0x1000\r\n");
+		return;
+	}
+	DWORD dwFoa = RvaToFoa(dwRva);
+	if (dwFoa == 0)
+	{
+		PRINT_ERROR("错误	->	地址转换失败\r\n");
+		return;
+	}
+	PRINT_INFO("\n地址转换结果：\n");
+	PRINT_INFO("RVA:0x%08X	->	FOA:0x%08X\n\n", dwRva, dwFoa);
+
+	for (size_t i = 0; i < g_pNtHeaders->FileHeader.NumberOfSections; i++)
+	{
+		DWORD dwStartRva = g_pSectionHeader[i].VirtualAddress;
+		DWORD dwEndRva = g_pSectionHeader[i].VirtualAddress + g_pSectionHeader[i].Misc.VirtualSize;
+
+		if (dwRva >= dwStartRva && dwRva < dwEndRva)
+		{
+			PRINT_INFO("所属节区：%s\n", g_pSectionHeader[i].Name);
+			PRINT_INFO("节区RVA范围：0x%08X - 0x%08X\n", dwStartRva, dwEndRva);
+			PRINT_INFO("节区FOA范围：0x%08X - 0x%08X\n", g_pSectionHeader[i].PointerToRawData, g_pSectionHeader[i].PointerToRawData + g_pSectionHeader[i].SizeOfRawData);
+		}
+	}
 }
 
 void CmdFoaToRva(const CHAR* param)
 {
+	if (g_pSectionHeader == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'命令加载PE文件\r\n");
+		return;
+	}
+	if (param == NULL || *param == '\0')
+	{
+		PRINT_ERROR("错误	->	请输入指定格式地址（格式：1000 / 0x1000)\r\n");
+		PRINT_ERROR("示例	->	foa 1000 / foa 0x1000\r\n");
+		return;
+	}
+	DWORD dwFoa = 0;
+	if (sscanf(param, "0x%x", &dwFoa) != 1 && sscanf(param, "%x", &dwFoa) != 1)
+	{
+		PRINT_ERROR("错误	->	无效的地址格式\r\n");
+		PRINT_ERROR("示例	->	foa 1000 / foa 0x1000\r\n");
+		return;
+	}
+	DWORD dwRva = FoaToRva(dwFoa);
+	if (dwRva == 0)
+	{
+		PRINT_ERROR("错误	->	地址转换失败\r\n");
+		return;
+	}
+	PRINT_INFO("\n地址转换结果：\n");
+	PRINT_INFO("FOA:0x%08X	->	RVA:0x%08X\n\n", dwFoa, dwRva);
+
+	for (size_t i = 0; i < g_pNtHeaders->FileHeader.NumberOfSections; i++)
+	{
+		DWORD dwStartRva = g_pSectionHeader[i].VirtualAddress;
+		DWORD dwEndRva = g_pSectionHeader[i].VirtualAddress + g_pSectionHeader[i].Misc.VirtualSize;
+
+		if (dwRva >= dwStartRva && dwRva < dwEndRva)
+		{
+			PRINT_INFO("所属节区：%s\n", g_pSectionHeader[i].Name);
+			PRINT_INFO("节区RVA范围：0x%08X - 0x%08X\n", dwStartRva, dwEndRva);
+			PRINT_INFO("节区FOA范围：0x%08X - 0x%08X\n", g_pSectionHeader[i].PointerToRawData, g_pSectionHeader[i].PointerToRawData + g_pSectionHeader[i].SizeOfRawData);
+		}
+	}
 }
 
 void CmdClear(const CHAR* param)
