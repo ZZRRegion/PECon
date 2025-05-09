@@ -896,6 +896,11 @@ void CmdExport(const CHAR* param)
 
 void CmdGetExportFuncAddrByName(const CHAR* param)
 {
+	if (g_pNtHeaders == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'加载PE文件\r\n");
+		return;
+	}
 	if (param == NULL || *param == '\0')
 	{
 		PRINT_ERROR("错误	->	请输入指定格式地址（格式：Add )\r\n");
@@ -917,6 +922,11 @@ void CmdGetExportFuncAddrByName(const CHAR* param)
 
 void CmdGetExportFuncAddrByIndex(const CHAR* param)
 {
+	if (g_pNtHeaders == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'加载PE文件\r\n");
+		return;
+	}
 	if (param == NULL || *param == '\0')
 	{
 		PRINT_ERROR("错误	->	请输入指定格式地址（格式：getprocindex )\r\n");
@@ -933,7 +943,7 @@ void CmdGetExportFuncAddrByIndex(const CHAR* param)
 	DWORD dwFuncRva = GetExportFuncAddrByIndex(index);
 	if (dwFuncRva == 0)
 	{
-		PRINT_ERROR("错误\t->\t未找到指定函数[%s]\r\n", param);
+		PRINT_ERROR("错误\t->\t未找到函数序号[%d]\r\n", index);
 		return;
 	}
 	DWORD dwFuncFoa = RvaToFoa(dwFuncRva);
