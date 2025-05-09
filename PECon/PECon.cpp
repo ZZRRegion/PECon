@@ -862,7 +862,6 @@ void CmdExport(const CHAR* param)
 	for (size_t i = 0; i < pExport->NumberOfFunctions; i++)
 	{
 		DWORD name = NULL;
-		DWORD tName = NULL;
 		PRINT_INFO("%04x\t0x%08x\t", i + pExport->Base, pFunctions[i]);
 		if (pFunctions[i] != 0)
 		{
@@ -871,14 +870,13 @@ void CmdExport(const CHAR* param)
 				if (pOrd[j] == i)//判断名称序号是否等于地址的序号
 				{
 					name = pName[j];
-					tName = RvaToFoa(name);
 					break;
 				}
 			}
 		}
-		if (tName != 0)
+		if (name != 0)
 		{
-			PRINT_INFO("%08x\t%s\n", name, (const char*)(g_lpFileBuffer + tName));
+			PRINT_INFO("%08x\t%s\n", name, (const char*)(g_lpFileBuffer + RvaToFoa(name)));
 		}
 		else
 		{
