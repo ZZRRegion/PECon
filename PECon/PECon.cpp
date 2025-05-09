@@ -844,8 +844,8 @@ void CmdExport(const CHAR* param)
 	PRINT_INFO("0000h	NumberOfFunctions	->	0x%08X	//导出函数的数量(最大的导出序号-最小的导出序号+1)\n", pExport->NumberOfFunctions);
 	PRINT_INFO("0000h	NumberOfNames		->	0x%08X	//函数名称导出的数量\n", pExport->NumberOfNames);
 	PRINT_INFO("0000h	AddressOfFunctions	->	0x%08X	//导出函数地址表(RVA)指向4字节的数组(大小为NumOfFun)\n", pExport->AddressOfFunctions);
-	PRINT_INFO("0000h	AddressOfNames		->	0x%08X\n", pExport->AddressOfNames);
-	PRINT_INFO("0000h	AddressOfNameOrdinals	->	0x%08X\n", pExport->AddressOfNameOrdinals);
+	PRINT_INFO("0000h	AddressOfNames		->	0x%08X	//导出函数名称表(RVA)指向4字节的数组(大小为NumOfNam)\n", pExport->AddressOfNames);
+	PRINT_INFO("0000h	AddressOfNameOrdinals	->	0x%08X	//名称序号表指向2字节的数组(大小为NumOfNam)\n", pExport->AddressOfNameOrdinals);
 
 
 }
