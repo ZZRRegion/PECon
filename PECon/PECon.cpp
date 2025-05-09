@@ -846,8 +846,37 @@ void CmdExport(const CHAR* param)
 	PRINT_INFO("0000h	AddressOfFunctions	->	0x%08X	//导出函数地址表(RVA)指向4字节的数组(大小为NumOfFun)\n", pExport->AddressOfFunctions);
 	PRINT_INFO("0000h	AddressOfNames		->	0x%08X	//导出函数名称表(RVA)指向4字节的数组(大小为NumOfNam)\n", pExport->AddressOfNames);
 	PRINT_INFO("0000h	AddressOfNameOrdinals	->	0x%08X	//名称序号表指向2字节的数组(大小为NumOfNam)\n", pExport->AddressOfNameOrdinals);
-
-
+	dwFoa = RvaToFoa(pExport->AddressOfFunctions);
+	DWORD* pFunctions = (DWORD*)(g_lpFileBuffer + dwFoa);
+	dwFoa = RvaToFoa(pExport->AddressOfNames);
+	DWORD* pName = (DWORD*)(g_lpFileBuffer + dwFoa);
+	dwFoa = RvaToFoa(pExport->AddressOfNameOrdinals);
+	WORD* pOrd = (WORD*)(g_lpFileBuffer + dwFoa);
+	PRINT_ERROR("=========================导出函数=====================\n");
+	PRINT_ERROR("Ordinal	RVA		NameRva		Name\n");
+	for (size_t i = 0; i < pExport->NumberOfFunctions; i++)
+	{
+		DWORD name = NULL;
+		DWORD tName = NULL;
+		PRINT_INFO("%04x	0x%08x	", i + pExport->Base, pFunctions[i]);
+		for (size_t j = 0; j < pExport->NumberOfNames; j++)
+		{
+			if (pOrd[j] == i)
+			{
+				name = pName[j];
+				tName = RvaToFoa(name);
+				break;
+			}
+		}
+		if (tName != 0)
+		{
+			PRINT_INFO("%08x	%s\n", name, (const char*)(g_lpFileBuffer + tName));
+		}
+		else
+		{
+			PRINT_INFO("%08x	\n", name);
+		}
+	}
 }
 
 void CmdRelocation(const CHAR* param)
