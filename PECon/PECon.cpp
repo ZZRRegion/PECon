@@ -34,7 +34,7 @@ PBYTE g_lpFileBuffer = nullptr;
 PIMAGE_DOS_HEADER g_pDosHeader = nullptr;
 PIMAGE_NT_HEADERS g_pNtHeaders = nullptr;
 PIMAGE_SECTION_HEADER g_pSectionHeader = nullptr;
-const char* fileName = nullptr;
+char fileName[MAX_PATH] = {};
 // ==============================================
 VOID ShowMenu();
 VOID ProcessCommand();
@@ -286,10 +286,7 @@ VOID ShowMenu()
 	PRINT_MENU("    clear		- 清屏\n");
 	PRINT_MENU("    help		- 获取帮助\n");
 	PRINT_MENU("    exit		- 退出程序\n");
-	if (fileName != nullptr)
-	{
-		PRINT_MENU("当前加载文件：%s\n", fileName);
-	}
+	PRINT_MENU("当前加载文件：%s\n", fileName);
 	PRINT_INFO("请输入命令> ");
 }
 VOID ProcessCommand()
@@ -386,9 +383,9 @@ DWORD FoaToRva(DWORD dwFoa)
 
 int main()
 {
-	const char* fileName = R"(C:\Users\stdio\source\repos\PECon\Debug\PEDll.dll)";
+	const char* file = R"(C:\Users\stdio\source\repos\PECon\Debug\PEDll.dll)";
 	//fileName = "D:\\DriverDevelop\\InstDrv\\InstDrv.exe";
-	CmdLoad(fileName);
+	CmdLoad(file);
 	while(1)
 	{
 		//D:\DriverDevelop\InstDrv\InstDrv.exe
@@ -490,7 +487,7 @@ void CmdLoad(const CHAR* param)
 		g_pNtHeaders->FileHeader.SizeOfOptionalHeader;
 
 	g_pSectionHeader = (PIMAGE_SECTION_HEADER)(g_lpFileBuffer + dwSectionHeaderOffset);
-	fileName = param;
+	strcpy_s(fileName, param);
 	//释放资源
 	CloseHandle(g_hFile);
 	g_hFile = INVALID_HANDLE_VALUE;
@@ -1026,7 +1023,7 @@ void FreeLoadedFile()
 	g_pDosHeader = nullptr;
 	g_pNtHeaders = nullptr;
 	g_pSectionHeader = nullptr;
-	fileName = nullptr;
+	ZeroMemory(fileName, sizeof(fileName));
 }
 
 CmdHandler FindCmdHandler(const CHAR* cmd)
