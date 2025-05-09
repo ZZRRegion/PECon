@@ -859,13 +859,16 @@ void CmdExport(const CHAR* param)
 		DWORD name = NULL;
 		DWORD tName = NULL;
 		PRINT_INFO("%04x	0x%08x	", i + pExport->Base, pFunctions[i]);
-		for (size_t j = 0; j < pExport->NumberOfNames; j++)
+		if (pFunctions[i] != 0)
 		{
-			if (pOrd[j] == i)
+			for (size_t j = 0; j < pExport->NumberOfNames; j++)
 			{
-				name = pName[j];
-				tName = RvaToFoa(name);
-				break;
+				if (pOrd[j] == i)//判断名称序号是否等于地址的序号
+				{
+					name = pName[j];
+					tName = RvaToFoa(name);
+					break;
+				}
 			}
 		}
 		if (tName != 0)
