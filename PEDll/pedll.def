@@ -1,6 +1,6 @@
 LRBRARY
 	EXPORTS
 		Add @2
-		Sub @3
-		Mul @6
-		Div	@8
+		Sub @3 NONAME
+		Mul @4
+		Div @5

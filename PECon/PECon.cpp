@@ -53,7 +53,8 @@ void CmdFoaToRva(CONST CHAR* param);
 void CmdClear(CONST CHAR* param);
 void CmdHelp(CONST CHAR* param);
 void CmdExit(CONST CHAR* param);
-
+void CmdRead(CONST CHAR* param);
+void CmdReadStr(CONST CHAR* param);
 void FreeLoadedFile();
 // ==============================================
 typedef void (*CmdHandler)(CONST CHAR* param);
@@ -79,6 +80,8 @@ static const CmdEntry CMD_TABLE[] =
 	{"clear",		CmdClear},
 	{"help",		CmdHelp},
 	{"exit",		CmdExit},
+	{"read",        CmdRead},
+	{"readStr",     CmdReadStr},
 	{nullptr, nullptr}
 };
 // ==============================================
@@ -125,6 +128,10 @@ VOID HexAscii(const BYTE* data, SIZE_T offset, SIZE_T length)
 		{
 			printf("  ");
 			ascii[i] = ' ';
+		}
+		if (i == 7)
+		{
+			printf("- ");
 		}
 	}
 	printf(" |%s|\n",ascii);
@@ -946,6 +953,59 @@ void CmdHelp(const CHAR* param)
 
 void CmdExit(const CHAR* param)
 {
+}
+
+void CmdRead(const CHAR* param)
+{
+	if (g_pSectionHeader == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'命令加载PE文件\r\n");
+		return;
+	}
+	if (param == NULL || *param == '\0')
+	{
+		PRINT_ERROR("错误	->	请输入指定格式地址（格式：1000 / 0x1000)\r\n");
+		PRINT_ERROR("示例	->	rva 1000 / rva 0x1000\r\n");
+		return;
+	}
+	DWORD dwRva = 0;
+	if (sscanf(param, "0x%x", &dwRva) != 1 && sscanf(param, "%x", &dwRva) != 1)
+	{
+		PRINT_ERROR("错误	->	无效的地址格式\r\n");
+		PRINT_ERROR("示例	->	rva 1000 / rva 0x1000\r\n");
+		return;
+	}
+	DWORD dwFoa = RvaToFoa(dwRva);
+	const int LENGTH = 0xFF;
+	for (size_t i = 0; i < LENGTH / 16; i++)
+	{
+		HexAscii(g_lpFileBuffer + dwFoa + 16 * i, dwRva + 16 * i, 16);
+	}
+}
+
+void CmdReadStr(const CHAR* param)
+{
+	if (g_pSectionHeader == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'命令加载PE文件\r\n");
+		return;
+	}
+	if (param == NULL || *param == '\0')
+	{
+		PRINT_ERROR("错误	->	请输入指定格式地址（格式：1000 / 0x1000)\r\n");
+		PRINT_ERROR("示例	->	rva 1000 / rva 0x1000\r\n");
+		return;
+	}
+	DWORD dwRva = 0;
+	if (sscanf(param, "0x%x", &dwRva) != 1 && sscanf(param, "%x", &dwRva) != 1)
+	{
+		PRINT_ERROR("错误	->	无效的地址格式\r\n");
+		PRINT_ERROR("示例	->	rva 1000 / rva 0x1000\r\n");
+		return;
+	}
+	DWORD dwFoa = RvaToFoa(dwRva);
+	PBYTE str = g_lpFileBuffer + dwFoa;
+	PRINT_INFO("字符：%s\n", str);
 }
 
 void FreeLoadedFile()
