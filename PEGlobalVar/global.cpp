@@ -4,8 +4,9 @@
 DWORD g_Var = 0x12345678;
 int main()
 {
-	printf("Addr -> 0x%08x\r\n", &g_Var);
-	printf("Data -> 0x%08x\r\n", g_Var);
+	const char* fileName = R"(C:\Users\stdio\source\repos\PECon\Debug\PEDll.dll)";
+	HMODULE hmodule = LoadLibraryA(fileName);
+	FARPROC farproc = GetProcAddress(hmodule, (LPCSTR)2);
 
 	return 0;
 }

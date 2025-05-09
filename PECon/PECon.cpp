@@ -815,7 +815,45 @@ void CmdImport(const CHAR* param)
 		PRINT_ERROR("错误	->	请先使用'load'加载PE文件\r\n");
 		return;
 	}
-	
+	/*
+	typedef struct _IMAGE_IMPORT_DESCRIPTOR {
+    union {
+        DWORD   Characteristics;            // 0 for terminating null import descriptor
+        DWORD   OriginalFirstThunk;         // RVA to original unbound IAT (PIMAGE_THUNK_DATA)
+    } DUMMYUNIONNAME;
+    DWORD   TimeDateStamp;                  // 0 if not bound,
+                                            // -1 if bound, and real date\time stamp
+                                            //     in IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT (new BIND)
+                                            // O.W. date/time stamp of DLL bound to (Old BIND)
+
+    DWORD   ForwarderChain;                 // -1 if no forwarders
+    DWORD   Name;
+    DWORD   FirstThunk;                     // RVA to IAT (if bound this IAT has actual addresses)
+	} IMAGE_IMPORT_DESCRIPTOR;
+	*/
+	IMAGE_DATA_DIRECTORY dir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+	if (dir.VirtualAddress == 0 || dir.Size == 0)
+	{
+		PRINT_ERROR("错误\t->\t无导入表\r\n");
+		return;
+	}
+	PIMAGE_IMPORT_DESCRIPTOR pImport = (PIMAGE_IMPORT_DESCRIPTOR)(g_lpFileBuffer + RvaToFoa(dir.VirtualAddress));
+	PRINT_TITLE("==============导入表信息==============\n");
+	PRINT_ERROR("#\tOriginalFirstThunk\tTimeDateStamp\tForwarderChain\tName\t\tFirstThunk\t名称\n");
+	int index = 0;
+	while (pImport->OriginalFirstThunk != 0)
+	{
+		PRINT_INFO("%d\t%08x\t\t%08x\t%08x\t%08x\t%08x\t%s\n", 
+			index++, 
+			pImport->OriginalFirstThunk,
+			pImport->TimeDateStamp,
+			pImport->ForwarderChain,
+			pImport->Name,
+			pImport->FirstThunk,
+			g_lpFileBuffer + RvaToFoa(pImport->Name));
+		pImport++;
+	}
+
 }
 
 void CmdExport(const CHAR* param)
