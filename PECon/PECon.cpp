@@ -77,7 +77,7 @@ static const CmdEntry CMD_TABLE[] =
 	{"import",			CmdImport},
 	{"export",			CmdExport},
 	{"getprocname",		CmdGetExportFuncAddrByName},
-	{"getprocIndex",	CmdGetExportFuncAddrByIndex},
+	{"getprocindex",	CmdGetExportFuncAddrByIndex},
 	{"relocation",		CmdRelocation},
 	{"rva",				CmdRvaToFoa },
 	{"foa",				CmdFoaToRva},
@@ -284,8 +284,8 @@ VOID ShowMenu()
 	PRINT_MENU("    section		- 显示SECTION数据\n");
 	PRINT_MENU("    import		- 显示IMPORT数据\n");
 	PRINT_MENU("    export		- 显示EXPORT\n");
-	PRINT_MENU("    getprocname		- 显示EXPORT\n");
-	PRINT_MENU("    getprocIndex	- 显示EXPORT\n");
+	PRINT_MENU("    getprocname		- 查找指定函数名称地址RVA\n");
+	PRINT_MENU("    getprocindex	- 查找指定函数序号地址RVA\n");
 	PRINT_MENU("    relocation		- 显示RELOCATION数据\n");
 	PRINT_MENU("    rva		- RVA	->	FOA\n");
 	PRINT_MENU("    foa		- FOA	->	RVA\n");
@@ -919,15 +919,15 @@ void CmdGetExportFuncAddrByIndex(const CHAR* param)
 {
 	if (param == NULL || *param == '\0')
 	{
-		PRINT_ERROR("错误	->	请输入指定格式地址（格式：Add )\r\n");
-		PRINT_ERROR("示例	->	getprocname Add\r\n");
+		PRINT_ERROR("错误	->	请输入指定格式地址（格式：getprocindex )\r\n");
+		PRINT_ERROR("示例	->	getprocindex 2\r\n");
 		return;
 	}
 	DWORD index = 0;
 	if (sscanf(param, "%d", &index) != 1)
 	{
 		PRINT_ERROR("错误	->	无效的地址格式\r\n");
-		PRINT_ERROR("示例	->	getprocIndex 1\r\n");
+		PRINT_ERROR("示例	->	getprocindex 1\r\n");
 		return;
 	}
 	DWORD dwFuncRva = GetExportFuncAddrByIndex(index);
