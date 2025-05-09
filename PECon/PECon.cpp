@@ -47,6 +47,8 @@ void CmdNt(CONST CHAR* param);
 void CmdSection(CONST CHAR* param);
 void CmdImport(CONST CHAR* param);
 void CmdExport(CONST CHAR* param);
+void CmdGetExportFuncAddrByName(CONST CHAR* param);
+void CmdGetExportFuncAddrByIndex(CONST CHAR* param);
 void CmdRelocation(CONST CHAR* param);
 void CmdRvaToFoa(CONST CHAR* param);
 void CmdFoaToRva(CONST CHAR* param);
@@ -67,21 +69,23 @@ typedef struct
 
 static const CmdEntry CMD_TABLE[] =
 {
-	{"load",		CmdLoad},
-	{"info",		CmdInfo},
-	{"dos",			CmdDos},
-	{"nt",			CmdNt},
-	{"section",		CmdSection},
-	{"import",		CmdImport},
-	{"export",		CmdExport},
-	{"relocation",	CmdRelocation},
-	{"rva",			CmdRvaToFoa },
-	{"foa",			CmdFoaToRva},
-	{"clear",		CmdClear},
-	{"help",		CmdHelp},
-	{"exit",		CmdExit},
-	{"read",        CmdRead},
-	{"readStr",     CmdReadStr},
+	{"load",			CmdLoad},
+	{"info",			CmdInfo},
+	{"dos",				CmdDos},
+	{"nt",				CmdNt},
+	{"section",			CmdSection},
+	{"import",			CmdImport},
+	{"export",			CmdExport},
+	{"getprocname",		CmdGetExportFuncAddrByName},
+	{"getprocIndex",	CmdGetExportFuncAddrByIndex},
+	{"relocation",		CmdRelocation},
+	{"rva",				CmdRvaToFoa },
+	{"foa",				CmdFoaToRva},
+	{"clear",			CmdClear},
+	{"help",			CmdHelp},
+	{"exit",			CmdExit},
+	{"read",			CmdRead},
+	{"readStr",			CmdReadStr},
 	{nullptr, nullptr}
 };
 // ==============================================
@@ -280,6 +284,8 @@ VOID ShowMenu()
 	PRINT_MENU("    section		- 显示SECTION数据\n");
 	PRINT_MENU("    import		- 显示IMPORT数据\n");
 	PRINT_MENU("    export		- 显示EXPORT\n");
+	PRINT_MENU("    getprocname		- 显示EXPORT\n");
+	PRINT_MENU("    getprocIndex	- 显示EXPORT\n");
 	PRINT_MENU("    relocation		- 显示RELOCATION数据\n");
 	PRINT_MENU("    rva		- RVA	->	FOA\n");
 	PRINT_MENU("    foa		- FOA	->	RVA\n");
@@ -379,6 +385,9 @@ DWORD FoaToRva(DWORD dwFoa)
 	}
 	return 0;
 }
+DWORD GetExportFuncAddrByName(CONST CHAR* funcName);
+DWORD GetExportFuncAddrByIndex(DWORD dwIndex);
+DWORD GetExportNameByFuncAddr(DWORD dwFuncRva);
 // =======================================================
 
 int main()
@@ -885,6 +894,63 @@ void CmdExport(const CHAR* param)
 	}
 }
 
+void CmdGetExportFuncAddrByName(const CHAR* param)
+{
+	if (param == NULL || *param == '\0')
+	{
+		PRINT_ERROR("错误	->	请输入指定格式地址（格式：Add )\r\n");
+		PRINT_ERROR("示例	->	getprocname Add\r\n");
+		return;
+	}
+	DWORD dwFuncRva = GetExportFuncAddrByName(param);
+	if (dwFuncRva == 0)
+	{
+		PRINT_ERROR("错误\t->\t未找到指定函数[%s]\r\n", param);
+		return;
+	}
+	DWORD dwFuncFoa = RvaToFoa(dwFuncRva);
+	PRINT_INFO("\n函数信息\n");
+	PRINT_INFO("名称\t->\t%s\n", param);
+	PRINT_INFO("RVA\t->\t0x%08x\r\n", dwFuncRva);
+	PRINT_INFO("FOA\t->\t0x%08x\r\n", dwFuncFoa);
+}
+
+void CmdGetExportFuncAddrByIndex(const CHAR* param)
+{
+	if (param == NULL || *param == '\0')
+	{
+		PRINT_ERROR("错误	->	请输入指定格式地址（格式：Add )\r\n");
+		PRINT_ERROR("示例	->	getprocname Add\r\n");
+		return;
+	}
+	DWORD index = 0;
+	if (sscanf(param, "%d", &index) != 1)
+	{
+		PRINT_ERROR("错误	->	无效的地址格式\r\n");
+		PRINT_ERROR("示例	->	getprocIndex 1\r\n");
+		return;
+	}
+	DWORD dwFuncRva = GetExportFuncAddrByIndex(index);
+	if (dwFuncRva == 0)
+	{
+		PRINT_ERROR("错误\t->\t未找到指定函数[%s]\r\n", param);
+		return;
+	}
+	DWORD dwFuncFoa = RvaToFoa(dwFuncRva);
+	DWORD dwFuncName = GetExportNameByFuncAddr(dwFuncRva);
+	PRINT_INFO("\n函数信息\n");
+	if (dwFuncName > 0)
+	{
+		PRINT_INFO("名称\t->\t%s\n", g_lpFileBuffer + RvaToFoa(dwFuncName));
+	}
+	else
+	{
+		PRINT_INFO("名称\t->\t<NO NAME>\n");
+	}
+	PRINT_INFO("RVA\t->\t0x%08x\r\n", dwFuncRva);
+	PRINT_INFO("FOA\t->\t0x%08x\r\n", dwFuncFoa);
+}
+
 void CmdRelocation(const CHAR* param)
 {
 }
@@ -1071,4 +1137,76 @@ CmdHandler FindCmdHandler(const CHAR* cmd)
 		}
 	}
 	return nullptr;
+}
+
+DWORD GetExportFuncAddrByName(const CHAR* funcName)
+{
+	if (!g_pNtHeaders || !funcName) return 0;
+	IMAGE_DATA_DIRECTORY dir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+	if (!dir.VirtualAddress || !dir.Size) return 0;
+
+	PIMAGE_EXPORT_DIRECTORY pExportTable = (PIMAGE_EXPORT_DIRECTORY)(g_lpFileBuffer + RvaToFoa(dir.VirtualAddress));
+	PDWORD pAddressOfFunctions = (PDWORD)(g_lpFileBuffer + RvaToFoa(pExportTable->AddressOfFunctions));
+	PDWORD pAddressOfNames = (PDWORD)(g_lpFileBuffer + RvaToFoa(pExportTable->AddressOfNames));
+	PWORD pAddressOfNameOrdinals = (PWORD)(g_lpFileBuffer + RvaToFoa(pExportTable->AddressOfNameOrdinals));
+
+	for (size_t i = 0; i < pExportTable->NumberOfNames; i++)
+	{
+		DWORD dwNameFoa = RvaToFoa(pAddressOfNames[i]);
+		if (dwNameFoa == 0) continue;
+
+		PCHAR szName = (PCHAR)(g_lpFileBuffer + dwNameFoa);
+		if (strcmp(szName, funcName) == 0)
+		{
+			WORD index = pAddressOfNameOrdinals[i];
+			return pAddressOfFunctions[index];
+		}
+	}
+	return 0;
+}
+
+DWORD GetExportFuncAddrByIndex(DWORD dwIndex)
+{
+	if (!g_pNtHeaders) return 0;
+	IMAGE_DATA_DIRECTORY dir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+	if (!dir.VirtualAddress || !dir.Size) return 0;
+
+	PIMAGE_EXPORT_DIRECTORY pExportTable = (PIMAGE_EXPORT_DIRECTORY)(g_lpFileBuffer + RvaToFoa(dir.VirtualAddress));
+	PDWORD pAddressOfFunctions = (PDWORD)(g_lpFileBuffer + RvaToFoa(pExportTable->AddressOfFunctions));
+	PDWORD pAddressOfNames = (PDWORD)(g_lpFileBuffer + RvaToFoa(pExportTable->AddressOfNames));
+	PWORD pAddressOfNameOrdinals = (PWORD)(g_lpFileBuffer + RvaToFoa(pExportTable->AddressOfNameOrdinals));
+
+	DWORD index = dwIndex - pExportTable->Base;
+	if (index >= pExportTable->NumberOfFunctions)
+		return 0;
+	if (index < 0) return 0;
+
+	return pAddressOfFunctions[index];
+}
+
+DWORD GetExportNameByFuncAddr(DWORD dwFuncRva)
+{
+	if (!g_pNtHeaders) return 0;
+	IMAGE_DATA_DIRECTORY dir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+	if (!dir.VirtualAddress || !dir.Size) return 0;
+
+	PIMAGE_EXPORT_DIRECTORY pExportTable = (PIMAGE_EXPORT_DIRECTORY)(g_lpFileBuffer + RvaToFoa(dir.VirtualAddress));
+	PDWORD pAddressOfFunctions = (PDWORD)(g_lpFileBuffer + RvaToFoa(pExportTable->AddressOfFunctions));
+	PDWORD pAddressOfNames = (PDWORD)(g_lpFileBuffer + RvaToFoa(pExportTable->AddressOfNames));
+	PWORD pAddressOfNameOrdinals = (PWORD)(g_lpFileBuffer + RvaToFoa(pExportTable->AddressOfNameOrdinals));
+
+	for (size_t i = 0; i < pExportTable->NumberOfFunctions; i++)
+	{
+		if (pAddressOfFunctions[i] == dwFuncRva)
+		{
+			for (size_t j = 0; j < pExportTable->NumberOfNames; j++)
+			{
+				if (pAddressOfNameOrdinals[j] == i)
+				{
+					return pAddressOfNames[j];
+				}
+			}
+		}
+	}
+	return 0;
 }
