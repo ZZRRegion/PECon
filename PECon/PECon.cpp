@@ -886,15 +886,14 @@ void CmdImport(const CHAR* param)
 		if (!pINT || !pIAT) continue;
 
 		PRINT_INFO("\n导入函数列表\n");
-		PRINT_INFO("序号\tThunkRva\t函数信息\n");
+		PRINT_INFO("序号\tThunkRva\tOrdinal\t\tHint\t名称\n");
 		PRINT_INFO("----------------------------------------------\n");
 		for (size_t j = 0; pINT->u1.AddressOfData != 0; j++,pINT++,pIAT++)
 		{
-			PRINT_INFO("%d\t0x%08x\t", j + 1, pINT->u1.AddressOfData);
 			if (IMAGE_SNAP_BY_ORDINAL(pINT->u1.Ordinal))
 			{
 				WORD ordinal = IMAGE_ORDINAL(pINT->u1.Ordinal);
-				PRINT_INFO("序号导入\t->\t%d\n", ordinal);
+				PRINT_INFO("%d\t\t\t%08x\n", j, ordinal);
 			}
 			else
 			{
@@ -902,7 +901,11 @@ void CmdImport(const CHAR* param)
 				if (dwNameFoa)
 				{
 					PIMAGE_IMPORT_BY_NAME pImportName = (PIMAGE_IMPORT_BY_NAME)(g_lpFileBuffer + dwNameFoa);
-					PRINT_INFO("名称导入\t->\t%-25s\tHint->%d\n", pImportName->Name, pImportName->Hint);
+					PRINT_INFO("%d\t%08x\t\t\t%04x\t%-25s\n", 
+						j, 
+						pINT->u1.AddressOfData, 
+						pImportName->Hint, 
+						pImportName->Name);
 				}
 			}
 		}
