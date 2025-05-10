@@ -393,7 +393,7 @@ DWORD GetExportNameByFuncAddr(DWORD dwFuncRva);
 int main()
 {
 	const char* file = R"(C:\Users\stdio\source\repos\PECon\Debug\PEDll.dll)";
-	file = "D:\\DriverDevelop\\InstDrv\\InstDrv.exe";
+	//file = "D:\\DriverDevelop\\InstDrv\\InstDrv.exe";
 	CmdLoad(file);
 	while(1)
 	{
@@ -719,7 +719,8 @@ void CmdNt(const CHAR* param)
 
 
 			}
-			PRINT_INFO("		VirtualAddress		->	0x%08x	Size->0x%08x	%s\r\n",
+			PRINT_INFO("\t%d\tVirtualAddress		->	0x%08x	Size->0x%08x	%s\r\n",
+				i,
 				pOptionalHeader->DataDirectory[i].VirtualAddress,
 				pOptionalHeader->DataDirectory[i].Size,
 				szDataDirectory);
