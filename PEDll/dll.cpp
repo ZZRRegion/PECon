@@ -1,6 +1,8 @@
 #include "dll.h"
+DWORD g_var = 0x12345678;
 int Add(int a, int b)
 {
+	g_var = 0x110;
 	return a + b;
 }
 int Sub(int a, int b)

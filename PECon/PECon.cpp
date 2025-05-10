@@ -2,7 +2,9 @@
 #include<Windows.h>
 #include<stdio.h>
 #include<time.h>
-
+#include<DbgHelp.h>
+#include<list>
+#pragma comment(lib, "DbgHelp.lib")
 /*
 	DOS
 	DOS STUB
@@ -50,6 +52,7 @@ void CmdExport(CONST CHAR* param);
 void CmdGetExportFuncAddrByName(CONST CHAR* param);
 void CmdGetExportFuncAddrByIndex(CONST CHAR* param);
 void CmdRelocation(CONST CHAR* param);
+void CmdRelocColor(CONST CHAR* param);
 void CmdRvaToFoa(CONST CHAR* param);
 void CmdFoaToRva(CONST CHAR* param);
 void CmdClear(CONST CHAR* param);
@@ -79,6 +82,7 @@ static const CmdEntry CMD_TABLE[] =
 	{"getprocname",		CmdGetExportFuncAddrByName},
 	{"getprocindex",	CmdGetExportFuncAddrByIndex},
 	{"relocation",		CmdRelocation},
+	{"reloc-color",     CmdRelocColor},
 	{"rva",				CmdRvaToFoa },
 	{"foa",				CmdFoaToRva},
 	{"clear",			CmdClear},
@@ -287,6 +291,7 @@ VOID ShowMenu()
 	PRINT_MENU("    getprocname		- 查找指定函数名称地址RVA\n");
 	PRINT_MENU("    getprocindex	- 查找指定函数序号地址RVA\n");
 	PRINT_MENU("    relocation		- 显示RELOCATION数据\n");
+	PRINT_MENU("    reloc-color		- 显示RELOCATION数据\n");
 	PRINT_MENU("    rva		- RVA	->	FOA\n");
 	PRINT_MENU("    foa		- FOA	->	RVA\n");
 	PRINT_MENU("    clear		- 清屏\n");
@@ -1090,9 +1095,10 @@ void CmdRelocation(const CHAR* param)
 		PRINT_INFO("----------------------------------------------------------------\n");
 		PRINT_INFO("BlockBack\t->\t0x%08x\r\n", pRelocBlock->VirtualAddress);
 		PRINT_INFO("BlockSize\t->\t0x%08x\r\n", pRelocBlock->SizeOfBlock);
-		PRINT_INFO("BlockCount\t->\t%d\r\n\n", entryCount);
-		
-		PRINT_INFO("序号\tTypeOffset\t类型\t\t地址\n");
+		PRINT_INFO("BlockCount\t->\t%d\r\n", entryCount);
+		PIMAGE_SECTION_HEADER pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pRelocBlock->VirtualAddress);
+		PRINT_INFO("节区\t\t->\t%s\r\n\n", pSection->Name);
+		PRINT_INFO("序号\tTypeOffset\t类型\t\tRVA地址\t\tFOA地址\n");
 		PRINT_INFO("----------------------------------------------------------------\n");
 		for (size_t i = 0; i < entryCount; i++)
 		{
@@ -1100,21 +1106,103 @@ void CmdRelocation(const CHAR* param)
 			BYTE type = (entry >> 12) & 0xF;
 			WORD offset = entry & 0xFFF;
 			DWORD rva = pRelocBlock->VirtualAddress + offset;
+			DWORD foa = RvaToFoa(rva);
 			if (type == IMAGE_REL_BASED_HIGHLOW)
 			{
-				PRINT_INFO("%d\t%04x\t\tHIGHLOW\t\t%08x\n", i, entry, rva);
+				PRINT_INFO("%d\t%04x\t\tHIGHLOW\t\t%08x\t%08x\n", i, entry, rva, foa);
 			}
 			else if (type == IMAGE_REL_BASED_ABSOLUTE)
 			{
-				PRINT_INFO("%d\t%04x\t\tABS\t\t%08x\n", i, entry, rva);
+				PRINT_INFO("%d\t%04x\t\tABS\t\t%08x\t%08x\n", i, entry, rva, foa);
 			}
 			else
 			{
-				PRINT_INFO("%d\t0x%04x\t\t%x\t\t0x%08x\n", i, entry, type, rva);
+				PRINT_INFO("%d\t0x%04x\t\t%x\t\t0x%08x\t%08x\n", i, entry, type, rva, foa);
 			}
 		}
 		PRINT_INFO("----------------------------------------------------------------\n");
 		pRelocBlock = (PIMAGE_BASE_RELOCATION)((BYTE*)pRelocBlock + pRelocBlock->SizeOfBlock);
+	}
+}
+
+void CmdRelocColor(const CHAR* param)
+{
+	if (g_pNtHeaders == nullptr)
+	{
+		PRINT_ERROR("错误\t->\t请先使用'load'命令加载PE文件\r\n");
+		return;
+	}
+	if (param == NULL || *param == '\0')
+	{
+		PRINT_ERROR("错误	->	请输入指定格式地址（格式：1000 / 0x1000)\r\n");
+		PRINT_ERROR("示例	->	reloc-color 1000 / reloc-color 0x1000\r\n");
+		return;
+	}
+	DWORD dwRva = 0;
+	if (sscanf(param, "0x%x", &dwRva) != 1 && sscanf(param, "%x", &dwRva) != 1)
+	{
+		PRINT_ERROR("错误	->	无效的地址格式\r\n");
+		PRINT_ERROR("示例	->	reloc-color 1000 / reloc-color 0x1000\r\n");
+		return;
+	}
+	DWORD dwFoa = RvaToFoa(dwRva);
+	//重定位表判断
+	IMAGE_DATA_DIRECTORY dir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
+	if (dir.VirtualAddress == 0 || dir.Size == 0)
+	{
+		PRINT_ERROR("错误\t->\t当前PE文件不存在重定位表\r\n");
+		return;
+	}
+	DWORD dwBaseRelocFoa = RvaToFoa(dir.VirtualAddress);
+	if (dwBaseRelocFoa == 0)
+	{
+		PRINT_ERROR("错误\t->\t重定位结构RVA转换FOA失败\r\n");
+		return;
+	}
+	PIMAGE_BASE_RELOCATION pRelocBlock = (PIMAGE_BASE_RELOCATION)(g_lpFileBuffer + dwBaseRelocFoa);
+	std::list<DWORD> relocAddrs;
+	while (pRelocBlock->VirtualAddress != 0
+		&& pRelocBlock->SizeOfBlock != 0)
+	{
+		PIMAGE_SECTION_HEADER pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pRelocBlock->VirtualAddress);
+		if ((pSection->Characteristics & IMAGE_SCN_MEM_EXECUTE) == IMAGE_SCN_MEM_EXECUTE)
+		{
+			DWORD entryCount = (pRelocBlock->SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(WORD);
+			PWORD pEntry = (PWORD)((BYTE*)pRelocBlock + sizeof(IMAGE_BASE_RELOCATION));
+			for (size_t i = 0; i < entryCount; i++)
+			{
+				WORD entry = pEntry[i];
+				BYTE type = (entry >> 12) & 0xF;
+				WORD offset = entry & 0xFFF;
+				DWORD rva = pRelocBlock->VirtualAddress + offset;
+				DWORD foa = RvaToFoa(rva);
+				if (type == IMAGE_REL_BASED_HIGHLOW)
+				{
+					relocAddrs.push_back(foa);
+				}
+				else if (type == IMAGE_REL_BASED_ABSOLUTE)
+				{
+				}
+				else
+				{
+				}
+			}
+		}
+		pRelocBlock = (PIMAGE_BASE_RELOCATION)((BYTE*)pRelocBlock + pRelocBlock->SizeOfBlock);
+	}
+	PRINT_INFO("重定位数量：%d\n", relocAddrs.size());
+	const int LENGTH = 0xFF;
+	for (size_t i = 0; i < LENGTH / 16; i++)
+	{
+		PDWORD data = (PDWORD)(g_lpFileBuffer + dwFoa + 16 * i);
+		DWORD offset = dwFoa + i * 16;
+		int length = 16;
+		printf("%08X | ", offset);
+		for (size_t i = 0; i < 16 / sizeof(DWORD); i++)
+		{
+			printf("%08X ", data[i]);
+		}
+		printf("\n");
 	}
 }
 
