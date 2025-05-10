@@ -1061,6 +1061,61 @@ void CmdGetExportFuncAddrByIndex(const CHAR* param)
 
 void CmdRelocation(const CHAR* param)
 {
+	if (g_pNtHeaders == nullptr)
+	{
+		PRINT_ERROR("错误\t->\t请先使用'load'命令加载PE文件\r\n");
+		return;
+	}
+	//导出表判断
+	IMAGE_DATA_DIRECTORY dir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
+	if (dir.VirtualAddress == 0 || dir.Size == 0)
+	{
+		PRINT_ERROR("错误\t->\t当前PE文件不存在重定位表\r\n");
+		return;
+	}
+	DWORD dwBaseRelocFoa = RvaToFoa(dir.VirtualAddress);
+	if (dwBaseRelocFoa == 0)
+	{
+		PRINT_ERROR("错误\t->\t重定位结构RVA转换FOA失败\r\n");
+		return;
+	}
+	PIMAGE_BASE_RELOCATION pRelocBlock = (PIMAGE_BASE_RELOCATION)(g_lpFileBuffer + dwBaseRelocFoa);
+	
+	PRINT_TITLE("\n==== Relocation Table Information ====\n");
+	while (pRelocBlock->VirtualAddress != 0
+		&& pRelocBlock->SizeOfBlock != 0)
+	{
+		DWORD entryCount = (pRelocBlock->SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(WORD);
+		PWORD pEntry = (PWORD)((BYTE*)pRelocBlock + sizeof(IMAGE_BASE_RELOCATION));
+		PRINT_INFO("----------------------------------------------------------------\n");
+		PRINT_INFO("BlockBack\t->\t0x%08x\r\n", pRelocBlock->VirtualAddress);
+		PRINT_INFO("BlockSize\t->\t0x%08x\r\n", pRelocBlock->SizeOfBlock);
+		PRINT_INFO("BlockCount\t->\t%d\r\n\n", entryCount);
+		
+		PRINT_INFO("序号\tTypeOffset\t类型\t\t地址\n");
+		PRINT_INFO("----------------------------------------------------------------\n");
+		for (size_t i = 0; i < entryCount; i++)
+		{
+			WORD entry = pEntry[i];
+			BYTE type = (entry >> 12) & 0xF;
+			WORD offset = entry & 0xFFF;
+			DWORD rva = pRelocBlock->VirtualAddress + offset;
+			if (type == IMAGE_REL_BASED_HIGHLOW)
+			{
+				PRINT_INFO("%d\t%04x\t\tHIGHLOW\t\t%08x\n", i, entry, rva);
+			}
+			else if (type == IMAGE_REL_BASED_ABSOLUTE)
+			{
+				PRINT_INFO("%d\t%04x\t\tABS\t\t%08x\n", i, entry, rva);
+			}
+			else
+			{
+				PRINT_INFO("%d\t0x%04x\t\t%x\t\t0x%08x\n", i, entry, type, rva);
+			}
+		}
+		PRINT_INFO("----------------------------------------------------------------\n");
+		pRelocBlock = (PIMAGE_BASE_RELOCATION)((BYTE*)pRelocBlock + pRelocBlock->SizeOfBlock);
+	}
 }
 
 void CmdRvaToFoa(const CHAR* param)
