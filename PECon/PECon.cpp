@@ -393,7 +393,7 @@ DWORD GetExportNameByFuncAddr(DWORD dwFuncRva);
 int main()
 {
 	const char* file = R"(C:\Users\stdio\source\repos\PECon\Debug\PEDll.dll)";
-	//fileName = "D:\\DriverDevelop\\InstDrv\\InstDrv.exe";
+	file = "D:\\DriverDevelop\\InstDrv\\InstDrv.exe";
 	CmdLoad(file);
 	while(1)
 	{
@@ -830,7 +830,21 @@ void CmdImport(const CHAR* param)
     DWORD   Name;
     DWORD   FirstThunk;                     // RVA to IAT (if bound this IAT has actual addresses)
 	} IMAGE_IMPORT_DESCRIPTOR;
+
+		typedef struct _IMAGE_THUNK_DATA32 {
+		union {
+			DWORD ForwarderString;      // PBYTE
+			DWORD Function;             // PDWORD
+			DWORD Ordinal;
+			DWORD AddressOfData;        // PIMAGE_IMPORT_BY_NAME
+		} u1;
+	} IMAGE_THUNK_DATA32;
+	typedef struct _IMAGE_IMPORT_BY_NAME {
+		WORD    Hint;
+		CHAR   Name[1];
+	} IMAGE_IMPORT_BY_NAME, *PIMAGE_IMPORT_BY_NAME;
 	*/
+	
 	IMAGE_DATA_DIRECTORY dir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
 	if (dir.VirtualAddress == 0 || dir.Size == 0)
 	{
