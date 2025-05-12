@@ -734,6 +734,7 @@ void CmdNt(const CHAR* param)
 	{
 		if (pOptionalHeader->DataDirectory[i].VirtualAddress != 0)
 		{
+			PIMAGE_SECTION_HEADER pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pOptionalHeader->DataDirectory[i].VirtualAddress);
 			const char* szDataDirectory = "UNKNOW";
 			switch (i)
 			{
@@ -755,10 +756,11 @@ void CmdNt(const CHAR* param)
 
 
 			}
-			PRINT_INFO("\t%d\tVirtualAddress		->	0x%08x	Size->0x%08x	%s\r\n",
+			PRINT_INFO("\t%d\tVirtualAddress		->	0x%08x	Size->0x%08x %s\t%s\r\n",
 				i,
 				pOptionalHeader->DataDirectory[i].VirtualAddress,
 				pOptionalHeader->DataDirectory[i].Size,
+				pSection->Name,
 				szDataDirectory);
 
 		}
