@@ -5,6 +5,28 @@
 #include<DbgHelp.h>
 #include<list>
 #pragma comment(lib, "DbgHelp.lib")
+#pragma comment(linker, "/INCLUDE:__tls_used")//告知链接器需要使用TLS
+__declspec(thread) int g_tls = 0x1234;
+__declspec(thread) int g_tls2 = 0x110;
+//TLS回调函数
+void NTAPI TlsCallback(PVOID DllHandle, DWORD Reason, PVOID Context)
+{
+	_asm
+	{
+		mov eax,110
+	}
+}
+void NTAPI TlsCallback2(PVOID DllHandle, DWORD Reason, PVOID Context)
+{
+	_asm
+	{
+		mov eax, 0x110
+	}
+}
+//声明TLS回调函数数组，必须放在.data节
+#pragma data_seg(".CRT$XLB")
+PIMAGE_TLS_CALLBACK pTlsCallbacks[] = { TlsCallback, TlsCallback2};
+#pragma data_seg()
 /*
 	DOS
 	DOS STUB
@@ -1231,10 +1253,19 @@ void CmdTLS(const CHAR* param)
 	pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pTls->EndAddressOfRawData - g_pNtHeaders->OptionalHeader.ImageBase);
 	PRINT_INFO("EndAddressOfRawData\t->\t%08x\t%s\n", pTls->EndAddressOfRawData, pSection->Name);
 	pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pTls->AddressOfIndex - g_pNtHeaders->OptionalHeader.ImageBase);
-
 	PRINT_INFO("AddressOfIndex\t\t->\t%08x\t%s\n", pTls->AddressOfIndex, pSection->Name);
 	pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pTls->AddressOfCallBacks - g_pNtHeaders->OptionalHeader.ImageBase);
 	PRINT_INFO("AddressOfCallBacks\t->\t%08x\t%s\n", pTls->AddressOfCallBacks, pSection->Name);
+	PDWORD pCall = (PDWORD)(g_lpFileBuffer + RvaToFoa(pTls->AddressOfCallBacks - g_pNtHeaders->OptionalHeader.ImageBase));
+	PRINT_TITLE("\t序号\t地址\t\t节区\n");
+	int index = 0;
+	while (*pCall != 0)
+	{
+		DWORD addr = *pCall;
+		pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, addr - g_pNtHeaders->OptionalHeader.ImageBase);
+		PRINT_ERROR("\t%d\t%08x\t%s\n", index++, addr, pSection->Name);
+		pCall++;
+	}
 	PRINT_INFO("SizeOfZeroFill\t\t->\t%08x\n", pTls->SizeOfZeroFill);
 	PRINT_INFO("Characteristics\t\t->\t%08x\n", pTls->Characteristics);
 
