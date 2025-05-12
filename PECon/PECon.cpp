@@ -80,6 +80,7 @@ void CmdRelocation(CONST CHAR* param);
 void CmdRelocColor(CONST CHAR* param);
 void CmdTLS(CONST CHAR* param);
 void CmdDelayImport(CONST CHAR* param);
+void CmdIAT(CONST CHAR* param);
 void CmdRvaToFoa(CONST CHAR* param);
 void CmdFoaToRva(CONST CHAR* param);
 void CmdClear(CONST CHAR* param);
@@ -112,6 +113,7 @@ static const CmdEntry CMD_TABLE[] =
 	{"reloc-color",     CmdRelocColor},
 	{"tls",             CmdTLS},		
 	{"delayimport",     CmdDelayImport},
+	{"iat",             CmdIAT},
 	{"rva",				CmdRvaToFoa },
 	{"foa",				CmdFoaToRva},
 	{"clear",			CmdClear},
@@ -1335,6 +1337,45 @@ void CmdDelayImport(const CHAR* param)
 		PRINT_INFO("UnloadInformationTableRVA\t->\t%08x\t//卸载信息表RVA，包含卸载DLL所需的信息\n", pDelayload->UnloadInformationTableRVA);
 		PRINT_INFO("TimeDateStamp\t\t\t->\t%08x\t//DLL的时间戳，用于验证预绑定信息的有效性\n", pDelayload->TimeDateStamp);
 		pDelayload++;
+	}
+}
+
+void CmdIAT(const CHAR* param)
+{
+	if (g_pNtHeaders == nullptr)
+	{
+		PRINT_ERROR("错误\t->\t请先使用'load'命令加载PE文件\r\n");
+		return;
+	}
+	IMAGE_DATA_DIRECTORY iatDir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IAT];
+	if (iatDir.VirtualAddress == 0 || iatDir.Size == 0)
+	{
+		PRINT_ERROR("错误\t->\t当前PE无IAT表\n");
+		return;
+	}
+	PRINT_TITLE("\n==== IAT表 ====\n");
+	PRINT_INFO("序号\tRVA\t\tHint\t名称\n");
+	PIMAGE_THUNK_DATA pThunk = (PIMAGE_THUNK_DATA)(g_lpFileBuffer + RvaToFoa(iatDir.VirtualAddress));
+	for (size_t i = 0; i < iatDir.Size / sizeof(DWORD); i++)
+	{
+		if (IMAGE_SNAP_BY_ORDINAL(pThunk[i].u1.Ordinal))
+		{
+			WORD ordinal = IMAGE_ORDINAL(pThunk[i].u1.Ordinal);
+			PRINT_INFO("%d\t\t\t%08x\n", i, ordinal);
+		}
+		else
+		{
+			DWORD dwNameFoa = RvaToFoa(pThunk[i].u1.AddressOfData);
+			if (dwNameFoa)
+			{
+				PIMAGE_IMPORT_BY_NAME pImportName = (PIMAGE_IMPORT_BY_NAME)(g_lpFileBuffer + dwNameFoa);
+				PRINT_INFO("%d\t%08x\t%04x\t%-25s\n",
+					i,
+					pThunk[i].u1.AddressOfData,
+					pImportName->Hint,
+					pImportName->Name);
+			}
+		}
 	}
 }
 
