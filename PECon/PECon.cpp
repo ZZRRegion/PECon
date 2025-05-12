@@ -53,6 +53,7 @@ void CmdGetExportFuncAddrByName(CONST CHAR* param);
 void CmdGetExportFuncAddrByIndex(CONST CHAR* param);
 void CmdRelocation(CONST CHAR* param);
 void CmdRelocColor(CONST CHAR* param);
+void CmdTLS(CONST CHAR* param);
 void CmdRvaToFoa(CONST CHAR* param);
 void CmdFoaToRva(CONST CHAR* param);
 void CmdClear(CONST CHAR* param);
@@ -83,6 +84,7 @@ static const CmdEntry CMD_TABLE[] =
 	{"getprocindex",	CmdGetExportFuncAddrByIndex},
 	{"relocation",		CmdRelocation},
 	{"reloc-color",     CmdRelocColor},
+	{"tls",             CmdTLS},		
 	{"rva",				CmdRvaToFoa },
 	{"foa",				CmdFoaToRva},
 	{"clear",			CmdClear},
@@ -292,6 +294,7 @@ VOID ShowMenu()
 	PRINT_MENU("    getprocindex	- 查找指定函数序号地址RVA\n");
 	PRINT_MENU("    relocation		- 显示RELOCATION数据\n");
 	PRINT_MENU("    reloc-color		- 显示RELOCATION数据\n");
+	PRINT_MENU("    tls		- 显示TLS数据\n");
 	PRINT_MENU("    rva		- RVA	->	FOA\n");
 	PRINT_MENU("    foa		- FOA	->	RVA\n");
 	PRINT_MENU("    clear		- 清屏\n");
@@ -1204,6 +1207,38 @@ void CmdRelocColor(const CHAR* param)
 		}
 		printf("\n");
 	}
+}
+
+void CmdTLS(const CHAR* param)
+{
+	if (g_pNtHeaders == nullptr)
+	{
+		PRINT_ERROR("错误\t->\t请先使用'load'命令加载PE文件\r\n");
+		return;
+	}
+	IMAGE_DATA_DIRECTORY tlsDir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS];
+	if (tlsDir.VirtualAddress == 0 || tlsDir.Size == 0)
+	{
+		PRINT_ERROR("错误\t->\t当前PE文件不存在TLS表\r\n");
+		return;
+	}
+	PRINT_INFO("TLS\tVirtualAddress\t->\t%08x\tSize\t->\t%08x\n", tlsDir.VirtualAddress, tlsDir.Size);
+	PIMAGE_TLS_DIRECTORY pTls = (PIMAGE_TLS_DIRECTORY)(g_lpFileBuffer + RvaToFoa(tlsDir.VirtualAddress));
+	PRINT_TITLE("\n==== TLS Table Info ====\n");
+	PIMAGE_SECTION_HEADER pSection = nullptr;
+	pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pTls->StartAddressOfRawData - g_pNtHeaders->OptionalHeader.ImageBase);
+	PRINT_INFO("StartAddressOfRawData\t->\t%08x\t%s\n", pTls->StartAddressOfRawData, pSection->Name);
+	pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pTls->EndAddressOfRawData - g_pNtHeaders->OptionalHeader.ImageBase);
+	PRINT_INFO("EndAddressOfRawData\t->\t%08x\t%s\n", pTls->EndAddressOfRawData, pSection->Name);
+	pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pTls->AddressOfIndex - g_pNtHeaders->OptionalHeader.ImageBase);
+
+	PRINT_INFO("AddressOfIndex\t\t->\t%08x\t%s\n", pTls->AddressOfIndex, pSection->Name);
+	pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pTls->AddressOfCallBacks - g_pNtHeaders->OptionalHeader.ImageBase);
+	PRINT_INFO("AddressOfCallBacks\t->\t%08x\t%s\n", pTls->AddressOfCallBacks, pSection->Name);
+	PRINT_INFO("SizeOfZeroFill\t\t->\t%08x\n", pTls->SizeOfZeroFill);
+	PRINT_INFO("Characteristics\t\t->\t%08x\n", pTls->Characteristics);
+
+
 }
 
 void CmdRvaToFoa(const CHAR* param)
