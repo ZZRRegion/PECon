@@ -79,6 +79,7 @@ void CmdGetExportFuncAddrByIndex(CONST CHAR* param);
 void CmdRelocation(CONST CHAR* param);
 void CmdRelocColor(CONST CHAR* param);
 void CmdTLS(CONST CHAR* param);
+void CmdLoadConfig(CONST CHAR* param);
 void CmdDelayImport(CONST CHAR* param);
 void CmdIAT(CONST CHAR* param);
 void CmdRvaToFoa(CONST CHAR* param);
@@ -112,6 +113,7 @@ static const CmdEntry CMD_TABLE[] =
 	{"relocation",		CmdRelocation},
 	{"reloc-color",     CmdRelocColor},
 	{"tls",             CmdTLS},		
+	{"loadconfig",      CmdLoadConfig},
 	{"delayimport",     CmdDelayImport},
 	{"iat",             CmdIAT},
 	{"rva",				CmdRvaToFoa },
@@ -324,6 +326,7 @@ VOID ShowMenu()
 	PRINT_MENU("    relocation		- 显示RELOCATION数据\n");
 	PRINT_MENU("    reloc-color		- 显示RELOCATION数据\n");
 	PRINT_MENU("    tls			- 显示TLS数据\n");
+	PRINT_MENU("    loadconfig		- 显示LoadConfig数据\n");
 	PRINT_MENU("    delayimport		- 显示延迟导入表数据\n");
 	PRINT_MENU("    rva			- RVA	->	FOA\n");
 	PRINT_MENU("    foa			- FOA	->	RVA\n");
@@ -1279,6 +1282,25 @@ void CmdTLS(const CHAR* param)
 	PRINT_INFO("SizeOfZeroFill\t\t->\t%08x\n", pTls->SizeOfZeroFill);
 	PRINT_INFO("Characteristics\t\t->\t%08x\n", pTls->Characteristics);
 
+
+}
+
+void CmdLoadConfig(const CHAR* param)
+{
+	if (g_pNtHeaders == nullptr)
+	{
+		PRINT_ERROR("错误\t->\t请先使用'load'命令加载PE文件\r\n");
+		return;
+	}
+	IMAGE_DATA_DIRECTORY loadConfigDir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG];
+	if (loadConfigDir.VirtualAddress == 0 || loadConfigDir.Size == 0)
+	{
+		PRINT_ERROR("错误\t->\t当前PE文件不存在加载配置表\r\n");
+		return;
+	}
+	PRINT_TITLE("\n==== LOAD_CONFIG Info ====\n");
+	PRINT_INFO("VirtualAddress\t->\t%08x\tSize\t->\t%08x\n", loadConfigDir.VirtualAddress, loadConfigDir.Size);
+	PIMAGE_LOAD_CONFIG_DIRECTORY pLoadConfig = (PIMAGE_LOAD_CONFIG_DIRECTORY)(g_lpFileBuffer + RvaToFoa(loadConfigDir.VirtualAddress));
 
 }
 
