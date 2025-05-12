@@ -1,4 +1,5 @@
 #include "dll.h"
+#include<iostream>
 #pragma comment(linker, "/INCLUDE:__tls_used")//告知链接器需要使用TLS
 #include "../PEDllDemo/Demo.h"
 #pragma comment(lib, "../Debug/PEDllDemo.lib")
@@ -38,6 +39,14 @@ int Sub(int a, int b)
 }
 int Mul(int a, int b)
 {
+	try
+	{
+		throw std::runtime_error("测试异常");
+	}
+	catch (const std::exception& e)
+	{
+
+	}
 	return a * b;
 }
 int Div(int a, int b)

@@ -72,6 +72,7 @@ void CmdInfo(CONST CHAR* param);
 void CmdDos(CONST CHAR* param);
 void CmdNt(CONST CHAR* param);
 void CmdSection(CONST CHAR* param);
+void CmdString(CONST CHAR* param);
 void CmdImport(CONST CHAR* param);
 void CmdExport(CONST CHAR* param);
 void CmdGetExportFuncAddrByName(CONST CHAR* param);
@@ -106,6 +107,7 @@ static const CmdEntry CMD_TABLE[] =
 	{"dos",				CmdDos},
 	{"nt",				CmdNt},
 	{"section",			CmdSection},
+	{"string",          CmdString},
 	{"import",			CmdImport},
 	{"export",			CmdExport},
 	{"getprocname",		CmdGetExportFuncAddrByName},
@@ -319,6 +321,7 @@ VOID ShowMenu()
 	PRINT_MENU("    dos			- 显示DOS数据\n");
 	PRINT_MENU("    nt			- 显示NT数据\n");
 	PRINT_MENU("    section		- 显示SECTION数据\n");
+	PRINT_MENU("    string		- 显示字符串\n");
 	PRINT_MENU("    import		- 显示IMPORT数据\n");
 	PRINT_MENU("    export		- 显示EXPORT\n");
 	PRINT_MENU("    getprocname		- 查找指定函数名称地址RVA\n");
@@ -851,7 +854,76 @@ void CmdSection(const CHAR* param)
 	PRINT_INFO("Total Virtual Size:%d\n", totalVirtualSize);
 	PRINT_INFO("Total Raw Size:%d\n", totalRawSize);
 
-}			 
+}
+void CmdString(const CHAR* param)
+{
+	if (g_pSectionHeader == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'加载PE文件\r\n");
+		return;
+	}
+	PRINT_TITLE("\n==== 字符串 ====\n");
+	PRINT_INFO("序号\t偏移\t地址\t\t节区\t大小\t字符串\n");
+	PBYTE stringStart = nullptr;
+	DWORD index = 0;
+	const int BUFFERLENGTH = 60;
+	char* buffer = new char[BUFFERLENGTH];
+	const int SECTIONMAXNAME = 20;
+	char* sectionName = new char[SECTIONMAXNAME];
+	for (DWORD i = 0; i < g_dwFileSize; i++)
+	{
+		PBYTE current = g_lpFileBuffer + i;
+		if (isprint(*current) || *current == '\t')
+		{
+			if (!stringStart)
+			{
+				stringStart = current;
+			}
+		}
+		else
+		{
+			//字符串结束
+			if (stringStart)
+			{
+				size_t length = current - stringStart;
+				if (length >= 5)
+				{
+					ZeroMemory(buffer, BUFFERLENGTH);
+					memcpy_s(buffer, BUFFERLENGTH, stringStart, length > BUFFERLENGTH - 1 ? BUFFERLENGTH : length);
+					ZeroMemory(sectionName, SECTIONMAXNAME);
+					strcpy_s(sectionName, SECTIONMAXNAME, "PE头");
+					DWORD offset = (stringStart - g_lpFileBuffer);
+					DWORD imageBase = g_pNtHeaders->OptionalHeader.ImageBase;
+					DWORD va = imageBase + offset;
+					if (offset > g_pNtHeaders->OptionalHeader.SizeOfHeaders)
+					{
+						for (size_t j = 0; j < g_pNtHeaders->FileHeader.NumberOfSections; j++)
+						{
+							PIMAGE_SECTION_HEADER pSection = g_pSectionHeader + j;
+							if (offset >= pSection->PointerToRawData &&
+								offset < pSection->PointerToRawData + pSection->SizeOfRawData)
+							{
+								ZeroMemory(sectionName, SECTIONMAXNAME);
+								memcpy_s(sectionName, SECTIONMAXNAME, pSection->Name, IMAGE_SIZEOF_SHORT_NAME);
+								va = imageBase + pSection->VirtualAddress + offset - pSection->PointerToRawData;
+								break;
+							}
+						}
+					}
+					
+					PRINT_INFO("%d\t%04x\t%08x\t%s\t%02x\t%s\n",
+						index++, 
+						offset, 
+						va, 
+						sectionName,
+						length, 
+						buffer);
+				}
+				stringStart = nullptr;
+			}
+		}
+	}
+}
 void CmdImport(const CHAR* param)
 {
 	if (g_pSectionHeader == nullptr)
