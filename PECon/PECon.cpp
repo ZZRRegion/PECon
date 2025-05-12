@@ -6,17 +6,20 @@
 #include<list>
 #pragma comment(lib, "DbgHelp.lib")
 #pragma comment(linker, "/INCLUDE:__tls_used")//告知链接器需要使用TLS
+#include "../PEDll/dll.h"
+#pragma comment(lib, "../Debug/PEDll.lib")
+//#pragma comment(linker, "/DELAYLOAD:PEDll.dll") //项目属性->链接器->输入->延迟加载的DLL填写PEDll.dll
 __declspec(thread) int g_tls = 0x1234;
 __declspec(thread) int g_tls2 = 0x110;
 //TLS回调函数
-void NTAPI TlsCallback(PVOID DllHandle, DWORD Reason, PVOID Context)
+void static NTAPI TlsCallback(PVOID DllHandle, DWORD Reason, PVOID Context)
 {
 	_asm
 	{
 		mov eax,110
 	}
 }
-void NTAPI TlsCallback2(PVOID DllHandle, DWORD Reason, PVOID Context)
+void static NTAPI TlsCallback2(PVOID DllHandle, DWORD Reason, PVOID Context)
 {
 	_asm
 	{
@@ -76,6 +79,7 @@ void CmdGetExportFuncAddrByIndex(CONST CHAR* param);
 void CmdRelocation(CONST CHAR* param);
 void CmdRelocColor(CONST CHAR* param);
 void CmdTLS(CONST CHAR* param);
+void CmdDelayImport(CONST CHAR* param);
 void CmdRvaToFoa(CONST CHAR* param);
 void CmdFoaToRva(CONST CHAR* param);
 void CmdClear(CONST CHAR* param);
@@ -107,6 +111,7 @@ static const CmdEntry CMD_TABLE[] =
 	{"relocation",		CmdRelocation},
 	{"reloc-color",     CmdRelocColor},
 	{"tls",             CmdTLS},		
+	{"delayimport",     CmdDelayImport},
 	{"rva",				CmdRvaToFoa },
 	{"foa",				CmdFoaToRva},
 	{"clear",			CmdClear},
@@ -316,9 +321,10 @@ VOID ShowMenu()
 	PRINT_MENU("    getprocindex	- 查找指定函数序号地址RVA\n");
 	PRINT_MENU("    relocation		- 显示RELOCATION数据\n");
 	PRINT_MENU("    reloc-color		- 显示RELOCATION数据\n");
-	PRINT_MENU("    tls		- 显示TLS数据\n");
-	PRINT_MENU("    rva		- RVA	->	FOA\n");
-	PRINT_MENU("    foa		- FOA	->	RVA\n");
+	PRINT_MENU("    tls			- 显示TLS数据\n");
+	PRINT_MENU("    delayimport		- 显示延迟导入表数据\n");
+	PRINT_MENU("    rva			- RVA	->	FOA\n");
+	PRINT_MENU("    foa			- FOA	->	RVA\n");
 	PRINT_MENU("    clear		- 清屏\n");
 	PRINT_MENU("    help		- 获取帮助\n");
 	PRINT_MENU("    exit		- 退出程序\n");
@@ -1270,6 +1276,64 @@ void CmdTLS(const CHAR* param)
 	PRINT_INFO("Characteristics\t\t->\t%08x\n", pTls->Characteristics);
 
 
+}
+
+void CmdDelayImport(const CHAR* param)
+{
+	int add = Add(1, 2);
+	if (g_pNtHeaders == nullptr)
+	{
+		PRINT_ERROR("错误\t->\t请先使用'load'命令加载PE文件\r\n");
+		return;
+	}
+	IMAGE_DATA_DIRECTORY delayImportDir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT];
+	if (delayImportDir.VirtualAddress == 0 || delayImportDir.Size == 0)
+	{
+		PRINT_ERROR("错误\t->\t当前PE无延迟导入表\n");
+		return;
+	}
+	PRINT_INFO("VirtualAddress\t->\t%08x\tSize\t->\t%08x\n", delayImportDir.VirtualAddress, delayImportDir.Size);
+	PIMAGE_DELAYLOAD_DESCRIPTOR pDelayload = (PIMAGE_DELAYLOAD_DESCRIPTOR)(g_lpFileBuffer + RvaToFoa(delayImportDir.VirtualAddress));
+	PRINT_TITLE("\n==== 延迟导入表 ====\n");
+	int index = 0;
+	while (pDelayload->DllNameRVA != 0)
+	{
+		PRINT_INFO("序号\t\t\t\t->\t%d\n", index++);
+		PRINT_INFO("AllAttributes\t\t\t->\t%08x\t//保留字段，通常为0\n", pDelayload->Attributes.AllAttributes);
+		PRINT_INFO("DllNameRVA\t\t\t->\t%08x\t%s\t//指向以NULL结尾的DLL名称字符串的RVA\n", pDelayload->DllNameRVA, g_lpFileBuffer + RvaToFoa(pDelayload->DllNameRVA));
+		PRINT_INFO("ModuleHandleRVA\t\t\t->\t%08x\t//指向存储DLL模块句柄的RVA，由加载器在加载DLL后填充\n", pDelayload->ModuleHandleRVA);
+		PRINT_INFO("ImportAddressTableRVA\t\t->\t%08x//导入地址表的RVA，初始时包含函数名或序号，加载后会被替换为实际函数地址\n", pDelayload->ImportAddressTableRVA);
+		PRINT_INFO("ImportNameTableRVA\t\t->\t%08x\t//导入名称表的RVA，包含函数名或序号信息\n", pDelayload->ImportNameTableRVA);
+		PIMAGE_THUNK_DATA pINT = (PIMAGE_THUNK_DATA)(g_lpFileBuffer + RvaToFoa(pDelayload->ImportNameTableRVA));
+		PRINT_INFO("\n导入函数列表\n");
+		PRINT_INFO("序号\tThunkRva\tOrdinal\t\tHint\t名称\n");
+		PRINT_INFO("----------------------------------------------\n");
+		for (size_t j = 0; pINT->u1.AddressOfData != 0; j++, pINT++)
+		{
+			if (IMAGE_SNAP_BY_ORDINAL(pINT->u1.Ordinal))
+			{
+				WORD ordinal = IMAGE_ORDINAL(pINT->u1.Ordinal);
+				PRINT_INFO("%d\t\t\t%08x\n", j, ordinal);
+			}
+			else
+			{
+				DWORD dwNameFoa = RvaToFoa(pINT->u1.AddressOfData);
+				if (dwNameFoa)
+				{
+					PIMAGE_IMPORT_BY_NAME pImportName = (PIMAGE_IMPORT_BY_NAME)(g_lpFileBuffer + dwNameFoa);
+					PRINT_INFO("%d\t%08x\t\t\t%04x\t%-25s\n",
+						j,
+						pINT->u1.AddressOfData,
+						pImportName->Hint,
+						pImportName->Name);
+				}
+			}
+		}
+		PRINT_INFO("BoundImportAddressTableRVA\t->\t%08x\t//可选的绑定导入地址表RVA，用于存储绑定信息\n", pDelayload->BoundImportAddressTableRVA);
+		PRINT_INFO("UnloadInformationTableRVA\t->\t%08x\t//卸载信息表RVA，包含卸载DLL所需的信息\n", pDelayload->UnloadInformationTableRVA);
+		PRINT_INFO("TimeDateStamp\t\t\t->\t%08x\t//DLL的时间戳，用于验证预绑定信息的有效性\n", pDelayload->TimeDateStamp);
+		pDelayload++;
+	}
 }
 
 void CmdRvaToFoa(const CHAR* param)

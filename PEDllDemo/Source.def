@@ -1,0 +1,4 @@
+LIBRARY
+	EXPORTS
+		Desc
+		Test @10 NONAME

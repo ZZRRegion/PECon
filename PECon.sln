@@ -13,6 +13,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PEGlobalVar", "PEGlobalVar\
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PEDll", "PEDll\PEDll.vcxproj", "{63637F8B-2767-4A84-8E45-70B36FDCB13A}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PEDllDemo", "PEDllDemo\PEDllDemo.vcxproj", "{F1358753-6924-4706-BD2C-2E33F8E3FEB6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -45,6 +47,14 @@ Global
 		{63637F8B-2767-4A84-8E45-70B36FDCB13A}.Release|x64.Build.0 = Release|x64
 		{63637F8B-2767-4A84-8E45-70B36FDCB13A}.Release|x86.ActiveCfg = Release|Win32
 		{63637F8B-2767-4A84-8E45-70B36FDCB13A}.Release|x86.Build.0 = Release|Win32
+		{F1358753-6924-4706-BD2C-2E33F8E3FEB6}.Debug|x64.ActiveCfg = Debug|x64
+		{F1358753-6924-4706-BD2C-2E33F8E3FEB6}.Debug|x64.Build.0 = Debug|x64
+		{F1358753-6924-4706-BD2C-2E33F8E3FEB6}.Debug|x86.ActiveCfg = Debug|Win32
+		{F1358753-6924-4706-BD2C-2E33F8E3FEB6}.Debug|x86.Build.0 = Debug|Win32
+		{F1358753-6924-4706-BD2C-2E33F8E3FEB6}.Release|x64.ActiveCfg = Release|x64
+		{F1358753-6924-4706-BD2C-2E33F8E3FEB6}.Release|x64.Build.0 = Release|x64
+		{F1358753-6924-4706-BD2C-2E33F8E3FEB6}.Release|x86.ActiveCfg = Release|Win32
+		{F1358753-6924-4706-BD2C-2E33F8E3FEB6}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
