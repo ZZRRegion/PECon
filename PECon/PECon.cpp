@@ -5,6 +5,9 @@
 #include<DbgHelp.h>
 #include<list>
 #include<filesystem>
+#include<TlHelp32.h>
+#include<Psapi.h>
+#pragma comment(lib, "psapi.lib")
 #pragma comment(lib, "DbgHelp.lib")
 #pragma comment(linker, "/INCLUDE:__tls_used")//告知链接器需要使用TLS
 #include "../PEDll/dll.h"
@@ -91,6 +94,7 @@ void CmdFoaToRva(CONST CHAR* param);
 void CmdClear(CONST CHAR* param);
 void CmdHelp(CONST CHAR* param);
 void CmdCmp(CONST CHAR* param);
+void CmdDump(CONST CHAR* param);
 void CmdExit(CONST CHAR* param);
 void CmdRead(CONST CHAR* param);
 void CmdReadStr(CONST CHAR* param);
@@ -128,6 +132,7 @@ static const CmdEntry CMD_TABLE[] =
 	{"clear",			CmdClear},
 	{"help",			CmdHelp},
 	{"cmp",             CmdCmp},
+	{"dump",            CmdDump},
 	{"exit",			CmdExit},
 	{"read",			CmdRead},
 	{"readStr",			CmdReadStr},
@@ -342,6 +347,7 @@ VOID ShowMenu()
 	PRINT_MENU("    clear		- 清屏\n");
 	PRINT_MENU("    help		- 获取帮助\n");
 	PRINT_MENU("    cmp			- 二进制比较文件\n");
+	PRINT_MENU("    dump		- dump进程文件\n");
 	PRINT_MENU("    exit		- 退出程序\n");
 	PRINT_MENU("当前加载文件：%s\n", fileName);
 	PRINT_INFO("请输入命令> ");
@@ -1642,6 +1648,126 @@ end:
 	{
 		free(file2buff);
 		file2buff = nullptr;
+	}
+}
+
+void CmdDump(const CHAR* param)
+{
+	DWORD pid = 0;
+	if (sscanf(param, "%d", &pid) == 1)
+	{
+		PRINT_TITLE("开始dump进程：%d\n", pid);
+		HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+		if (hProcess == INVALID_HANDLE_VALUE)
+		{
+			PRINT_ERROR("打开进程失败！\n");
+			return;
+		}
+		HMODULE hMods[1024] = {};
+		DWORD cbNeeded = 0;
+		if (EnumProcessModules(hProcess, hMods, sizeof(hMods), &cbNeeded))
+		{
+			//取第一个
+			std::string fileName(MAX_PATH, 0);
+			DWORD len = GetModuleFileNameExA(hProcess, hMods[0], fileName.data(), MAX_PATH);
+			DWORD fileSize = std::filesystem::file_size(fileName);
+			PRINT_INFO("文件大小：%d\t进程文件：%s\n", fileSize, fileName.c_str());
+
+			std::string name = std::filesystem::path(fileName).filename().string();
+			IMAGE_DOS_HEADER dos = {};
+			if (!ReadProcessMemory(hProcess, (LPCVOID)hMods[0], &dos, sizeof(IMAGE_DOS_HEADER), nullptr))
+			{
+				PRINT_ERROR("读取进程dos头内存失败\n");
+				return;
+			}
+			IMAGE_NT_HEADERS nt = {};
+			if (!ReadProcessMemory(hProcess, (LPCVOID)((PBYTE)hMods[0] + dos.e_lfanew), &nt, sizeof(nt), nullptr))
+			{
+				PRINT_ERROR("读取进程NT头内存失败\n");
+				return;
+			}
+			DWORD sizeOfImage = nt.OptionalHeader.SizeOfImage;
+			PRINT_INFO("进程主模块映像大小：%08x\n", sizeOfImage);
+			PBYTE buff = (PBYTE)malloc(sizeOfImage);
+			if (buff == nullptr)
+			{
+				PRINT_ERROR("申请内存失败！大小：%d\n", sizeOfImage);
+				return;
+			}
+			if (!ReadProcessMemory(hProcess, (LPCVOID)hMods[0], buff, sizeOfImage, nullptr))
+			{
+				PRINT_ERROR("读取进程模块内存失败，大小：%08x\n", sizeOfImage);
+				return;
+			}
+			PRINT_TITLE("\n==== PE信息 ====\n");
+			PRINT_INFO("NumberOfSections\t->%04x\n", nt.FileHeader.NumberOfSections);
+			PRINT_INFO("ImageBase\t\t->%08x\n", nt.OptionalHeader.ImageBase);
+			PRINT_INFO("AddressOfEntryPoint\t->%08x\n", nt.OptionalHeader.AddressOfEntryPoint);
+			PRINT_INFO("SectionAlignment\t->%08x\n", nt.OptionalHeader.SectionAlignment);
+			PRINT_INFO("FileAlignment\t\t->%08x\n", nt.OptionalHeader.FileAlignment);
+			PRINT_INFO("SizeOfImage\t\t->%08x\n", nt.OptionalHeader.SizeOfImage);
+			PRINT_TITLE("\n==== 数据目录 ====\n");
+			for (size_t i = 0; i < nt.OptionalHeader.NumberOfRvaAndSizes; i++)
+			{
+				IMAGE_DATA_DIRECTORY dir = nt.OptionalHeader.DataDirectory[i];
+				if (dir.VirtualAddress > 0 && dir.Size > 0)
+				{
+					PRINT_INFO("%d\tVirtualAddress->%08x\tSize->%08x\n", i, dir.VirtualAddress, dir.Size);
+				}
+			}
+			PRINT_TITLE("\n==== 节区 ====\n");
+			PIMAGE_SECTION_HEADER pSection = (PIMAGE_SECTION_HEADER)(buff + dos.e_lfanew + sizeof(IMAGE_NT_HEADERS));
+			DWORD fileBuffSize = pSection[nt.FileHeader.NumberOfSections - 1].PointerToRawData + pSection[nt.FileHeader.NumberOfSections - 1].SizeOfRawData;
+			PRINT_INFO("dump文件大小：%d\n", fileBuffSize);
+			PBYTE fileBuff = (PBYTE)malloc(fileBuffSize);
+			if (fileBuff == nullptr)
+			{
+				PRINT_ERROR("申请内存失败！%d\n", fileBuffSize);
+				return;
+			}
+			ZeroMemory(fileBuff, fileBuffSize);
+			memcpy_s(fileBuff, nt.OptionalHeader.SizeOfHeaders, buff, nt.OptionalHeader.SizeOfHeaders);
+			for (size_t i = 0; i < nt.FileHeader.NumberOfSections; i++)
+			{
+				char name[IMAGE_SIZEOF_SHORT_NAME + 1] = {};
+				memcpy_s(name, IMAGE_SIZEOF_SHORT_NAME, pSection[i].Name, IMAGE_SIZEOF_SHORT_NAME);
+				PRINT_INFO("%-8s\tPointerToRawData->%08x\tSizeOfRawData->%08x\n", name, pSection[i].PointerToRawData, pSection[i].SizeOfRawData);
+				if (pSection[i].SizeOfRawData > 0)
+				{
+					memcpy_s(fileBuff + pSection[i].PointerToRawData, pSection[i].SizeOfRawData, buff + pSection[i].VirtualAddress, pSection[i].SizeOfRawData);
+				}
+			}
+			FILE* file = nullptr;
+			fopen_s(&file, name.c_str(), "wb");
+			if (file == nullptr)
+			{
+				printf("打开写入文件失败！%s\n", name.c_str());
+				return;
+			}
+			fwrite(fileBuff, 1, fileBuffSize, file);
+			fclose(file);
+		end:
+			if (fileBuff != nullptr)
+			{
+				free(fileBuff);
+				fileBuff = nullptr;
+			}
+			if (buff != nullptr)
+			{
+				free(buff);
+				buff = nullptr;
+			}
+		}
+		else
+		{
+			PRINT_ERROR("EnumProcessModules fail->%d\n", GetLastError());
+		}
+		CloseHandle(hProcess);
+	}
+	else
+	{
+		PRINT_ERROR("错误 示例 dump 1234 //进程id");
+		return;
 	}
 }
 
