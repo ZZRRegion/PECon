@@ -1597,8 +1597,18 @@ void CmdCmp(const CHAR* param)
 		PRINT_TITLE("开始比较文件 %s和%s\n", file1, file2);
 		DWORD file1Size = std::filesystem::file_size(file1);
 		file1buff = (PBYTE)malloc(file1Size);
+		if (file1buff == nullptr)
+		{
+			PRINT_ERROR("申请内存失败\n");
+			return;
+		}
 		DWORD file2Size = std::filesystem::file_size(file2);
 		file2buff = (PBYTE)malloc(file2Size);
+		if (file2buff == nullptr)
+		{
+			PRINT_ERROR("申请内存失败\n");
+			return;
+		}
 		if (!ReadFileMemory(file1, file1buff, file1Size))
 		{
 			PRINT_ERROR("读取文件失败:%s\n", file1);
