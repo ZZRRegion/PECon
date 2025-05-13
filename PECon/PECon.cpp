@@ -4,6 +4,7 @@
 #include<time.h>
 #include<DbgHelp.h>
 #include<list>
+#include<filesystem>
 #pragma comment(lib, "DbgHelp.lib")
 #pragma comment(linker, "/INCLUDE:__tls_used")//告知链接器需要使用TLS
 #include "../PEDll/dll.h"
@@ -55,6 +56,8 @@ PIMAGE_TLS_CALLBACK pTlsCallbacks[] = { TlsCallback, TlsCallback2};
 #define PRINT_ERROR(fmt, ...) printf(CLR_ERROR fmt CLR_RESET,##__VA_ARGS__)
 #define PRINT_INFO(fmt, ...) printf(CLR_INFO fmt CLR_RESET,##__VA_ARGS__)
 // ==============================================
+const DWORD CMDLINEMAX = MAX_PATH * 2;
+CHAR cmdLine[CMDLINEMAX] = {};
 HANDLE g_hFile = INVALID_HANDLE_VALUE;
 DWORD g_dwFileSize = 0;
 PBYTE g_lpFileBuffer = nullptr;
@@ -87,10 +90,12 @@ void CmdRvaToFoa(CONST CHAR* param);
 void CmdFoaToRva(CONST CHAR* param);
 void CmdClear(CONST CHAR* param);
 void CmdHelp(CONST CHAR* param);
+void CmdCmp(CONST CHAR* param);
 void CmdExit(CONST CHAR* param);
 void CmdRead(CONST CHAR* param);
 void CmdReadStr(CONST CHAR* param);
 void FreeLoadedFile();
+bool ReadFileMemory(const char* file, PBYTE buff, DWORD length);
 // ==============================================
 typedef void (*CmdHandler)(CONST CHAR* param);
 CmdHandler FindCmdHandler(CONST CHAR* cmd);
@@ -122,6 +127,7 @@ static const CmdEntry CMD_TABLE[] =
 	{"foa",				CmdFoaToRva},
 	{"clear",			CmdClear},
 	{"help",			CmdHelp},
+	{"cmp",             CmdCmp},
 	{"exit",			CmdExit},
 	{"read",			CmdRead},
 	{"readStr",			CmdReadStr},
@@ -335,16 +341,18 @@ VOID ShowMenu()
 	PRINT_MENU("    foa			- FOA	->	RVA\n");
 	PRINT_MENU("    clear		- 清屏\n");
 	PRINT_MENU("    help		- 获取帮助\n");
+	PRINT_MENU("    cmp			- 二进制比较文件\n");
 	PRINT_MENU("    exit		- 退出程序\n");
 	PRINT_MENU("当前加载文件：%s\n", fileName);
 	PRINT_INFO("请输入命令> ");
 }
+
 VOID ProcessCommand()
 {
-	CHAR cmdLine[0xFF] = {};
+	ZeroMemory(cmdLine, CMDLINEMAX);
 	CHAR cmd[32] = {};
 	CHAR param[0xff] = {};
-	if (fgets(cmdLine, 0xff, stdin))
+	if (fgets(cmdLine, CMDLINEMAX, stdin))
 	{
 		size_t len = strlen(cmdLine);
 		if (len > 0 && cmdLine[len - 1] == '\n')
@@ -1567,6 +1575,66 @@ void CmdHelp(const CHAR* param)
 {
 }
 
+void CmdCmp(const CHAR* param)
+{
+	char cmd[MAX_PATH] = {};
+	char file1[MAX_PATH] = {};
+	char file2[MAX_PATH] = {};
+	PBYTE file1buff = nullptr;
+	PBYTE file2buff = nullptr;
+	if (sscanf(cmdLine, "%31s %255s %255s", cmd, file1, file2) == 3)
+	{
+		if (!std::filesystem::exists(file1))
+		{
+			PRINT_ERROR("文件->%s不存在\n", file1);
+			return;
+		}
+		if (!std::filesystem::exists(file2))
+		{
+			PRINT_ERROR("文件->%s不存在\n", file2);
+			return;
+		}
+		PRINT_TITLE("开始比较文件 %s和%s\n", file1, file2);
+		DWORD file1Size = std::filesystem::file_size(file1);
+		file1buff = (PBYTE)malloc(file1Size);
+		DWORD file2Size = std::filesystem::file_size(file2);
+		file2buff = (PBYTE)malloc(file2Size);
+		if (!ReadFileMemory(file1, file1buff, file1Size))
+		{
+			PRINT_ERROR("读取文件失败:%s\n", file1);
+			goto end;
+		}
+		if (!ReadFileMemory(file2, file2buff, file2Size))
+		{
+			PRINT_ERROR("读取文件失败:%s\n", file2);
+			goto end;
+		}
+		PRINT_INFO("文件1长度：%d\t文件2长度:%d\n", file1Size, file2Size);
+		for (int i = 0; i < min(file1Size, file2Size); i++)
+		{
+			if (file1buff[i] != file2buff[i])
+			{
+				PRINT_INFO("%08x\t%02x<=>%02x\n", i, file1buff[i], file2buff[i]);
+			}
+		}
+	}
+	else
+	{
+		PRINT_ERROR("错误 示例：cmp xxx\\xxx.exe xxx\\xxx.exe");
+	}
+end:
+	if (file1buff)
+	{
+		free(file1buff);
+		file1buff = nullptr;
+	}
+	if (file2buff)
+	{
+		free(file2buff);
+		file2buff = nullptr;
+	}
+}
+
 void CmdExit(const CHAR* param)
 {
 }
@@ -1643,6 +1711,19 @@ void FreeLoadedFile()
 	g_pNtHeaders = nullptr;
 	g_pSectionHeader = nullptr;
 	ZeroMemory(fileName, sizeof(fileName));
+}
+
+bool ReadFileMemory(const char* fileName, PBYTE buff, DWORD length)
+{
+	FILE* file = nullptr;
+	fopen_s(&file, fileName, "rb");
+	if (file == nullptr)
+	{
+		return false;
+	}
+	fread(buff, 1, length, file);
+	fclose(file);
+	return true;
 }
 
 CmdHandler FindCmdHandler(const CHAR* cmd)
