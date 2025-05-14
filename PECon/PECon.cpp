@@ -69,6 +69,7 @@ PIMAGE_NT_HEADERS g_pNtHeaders = nullptr;
 PIMAGE_SECTION_HEADER g_pSectionHeader = nullptr;
 char fileName[MAX_PATH] = {};
 char g_SectionName[IMAGE_SIZEOF_SHORT_NAME + 1] = {};
+char g_SectionName2[IMAGE_SIZEOF_SHORT_NAME + 1] = {};
 // ==============================================
 VOID ShowMenu();
 VOID ProcessCommand();
@@ -101,8 +102,8 @@ void CmdRead(CONST CHAR* param);
 void CmdReadStr(CONST CHAR* param);
 void FreeLoadedFile();
 bool ReadFileMemory(const char* file, PBYTE buff, DWORD length);
-const char* GetSectionName(PIMAGE_SECTION_HEADER pSection);
-const char* GetSectionNameByRVA(DWORD dwRva);
+const char* GetSectionName(PIMAGE_SECTION_HEADER pSection, bool first = true);
+const char* GetSectionNameByRVA(DWORD dwRva, bool first = true);
 // ==============================================
 typedef void (*CmdHandler)(CONST CHAR* param);
 CmdHandler FindCmdHandler(CONST CHAR* cmd);
@@ -458,7 +459,7 @@ int main()
 	const char* file = R"(C:\Users\stdio\source\repos\PECon\Debug\PEDll.dll)";
 	//file = "D:\\DriverDevelop\\InstDrv\\InstDrv.exe";
 	//file = R"(C:\Users\stdio\source\repos\PECon\PECon\SocketTool.exe)";
-	//file = R"(D:\Soft\SocketTool.exe)";
+	file = R"(D:\Soft\SocketTool.exe)";
 	CmdLoad(file);
 	while(1)
 	{
@@ -1023,7 +1024,7 @@ void CmdImport(const CHAR* param)
 				RvaToFoa(pImport->OriginalFirstThunk) + GetThunkDataLength(pImport->OriginalFirstThunk),
 				pImport->Name,
 				pImport->FirstThunk,
-				GetSectionNameByRVA(pImport->FirstThunk),
+				GetSectionNameByRVA(pImport->FirstThunk, false),
 				RvaToFoa(pImport->FirstThunk),
 				RvaToFoa(pImport->FirstThunk) + GetThunkDataLength(pImport->FirstThunk),
 				name);
@@ -1982,24 +1983,36 @@ bool ReadFileMemory(const char* fileName, PBYTE buff, DWORD length)
 	return true;
 }
 
-const char* GetSectionName(PIMAGE_SECTION_HEADER pSection)
+const char* GetSectionName(PIMAGE_SECTION_HEADER pSection, bool first)
 {
-	ZeroMemory(g_SectionName, IMAGE_SIZEOF_SHORT_NAME);
-	if (pSection)
+	if (first)
 	{
-		memcpy_s(g_SectionName, IMAGE_SIZEOF_SHORT_NAME, pSection->Name, IMAGE_SIZEOF_SHORT_NAME);
+		ZeroMemory(g_SectionName, IMAGE_SIZEOF_SHORT_NAME);
+		if (pSection)
+		{
+			memcpy_s(g_SectionName, IMAGE_SIZEOF_SHORT_NAME, pSection->Name, IMAGE_SIZEOF_SHORT_NAME);
+		}
+		return g_SectionName;
 	}
-	return g_SectionName;
+	else
+	{
+		ZeroMemory(g_SectionName2, IMAGE_SIZEOF_SHORT_NAME);
+		if (pSection)
+		{
+			memcpy_s(g_SectionName2, IMAGE_SIZEOF_SHORT_NAME, pSection->Name, IMAGE_SIZEOF_SHORT_NAME);
+		}
+		return g_SectionName2;
+	}
 }
-const char* GetSectionNameByRVA(DWORD dwRva)
+const char* GetSectionNameByRVA(DWORD dwRva, bool first)
 {
 	PIMAGE_SECTION_HEADER pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, dwRva);
-	return GetSectionName(pSection);
+	return GetSectionName(pSection, first);
 }
-const char* GetSectionNameByFOA(DWORD dwFoa)
+const char* GetSectionNameByFOA(DWORD dwFoa, bool first)
 {
 	DWORD rva = FoaToRva(dwFoa);
-	return GetSectionNameByRVA(rva);
+	return GetSectionNameByRVA(rva, first);
 }
 CmdHandler FindCmdHandler(const CHAR* cmd)
 {
