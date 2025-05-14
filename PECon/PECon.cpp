@@ -68,6 +68,7 @@ PIMAGE_DOS_HEADER g_pDosHeader = nullptr;
 PIMAGE_NT_HEADERS g_pNtHeaders = nullptr;
 PIMAGE_SECTION_HEADER g_pSectionHeader = nullptr;
 char fileName[MAX_PATH] = {};
+char g_SectionName[IMAGE_SIZEOF_SHORT_NAME + 1] = {};
 // ==============================================
 VOID ShowMenu();
 VOID ProcessCommand();
@@ -100,6 +101,7 @@ void CmdRead(CONST CHAR* param);
 void CmdReadStr(CONST CHAR* param);
 void FreeLoadedFile();
 bool ReadFileMemory(const char* file, PBYTE buff, DWORD length);
+const char* GetSectionName(PIMAGE_SECTION_HEADER pSection);
 // ==============================================
 typedef void (*CmdHandler)(CONST CHAR* param);
 CmdHandler FindCmdHandler(CONST CHAR* cmd);
@@ -784,7 +786,7 @@ void CmdNt(const CHAR* param)
 				i,
 				pOptionalHeader->DataDirectory[i].VirtualAddress,
 				pOptionalHeader->DataDirectory[i].Size,
-				pSection->Name,
+				GetSectionName(pSection),
 				szDataDirectory);
 
 		}
@@ -838,10 +840,8 @@ void CmdSection(const CHAR* param)
 	for (size_t i = 0; i < g_pNtHeaders->FileHeader.NumberOfSections; i++)
 	{
 		PIMAGE_SECTION_HEADER pSection = &g_pSectionHeader[i];
-		CHAR szName[9] = {};
-		memcpy(szName, pSection->Name, IMAGE_SIZEOF_SHORT_NAME);
-		PRINT_INFO("===================================%s========================================\n", szName);
-		PRINT_INFO("	0004h	Name		->	%s		//节区名称\r\n", szName);
+		PRINT_INFO("===================================%s========================================\n", GetSectionName(pSection));
+		PRINT_INFO("	0004h	Name		->	%s		//节区名称\r\n", GetSectionName(pSection));
 		PRINT_INFO("	0004h	VirtualSize	->	0x%08x	//RVA大小\r\n", pSection->Misc.VirtualSize);
 		PRINT_INFO("	0004h	VirtualAddress	->	0x%08x	//RVA起始\r\n", pSection->VirtualAddress);
 		PRINT_INFO("	0004h	SizeOfRawData	->	0x%08x	//FOA大小\r\n", pSection->SizeOfRawData);
@@ -920,7 +920,7 @@ void CmdString(const CHAR* param)
 								offset < pSection->PointerToRawData + pSection->SizeOfRawData)
 							{
 								ZeroMemory(sectionName, SECTIONMAXNAME);
-								memcpy_s(sectionName, SECTIONMAXNAME, pSection->Name, IMAGE_SIZEOF_SHORT_NAME);
+								memcpy_s(sectionName, SECTIONMAXNAME, GetSectionName(pSection), IMAGE_SIZEOF_SHORT_NAME);
 								va = imageBase + pSection->VirtualAddress + offset - pSection->PointerToRawData;
 								break;
 							}
@@ -1259,7 +1259,7 @@ void CmdRelocation(const CHAR* param)
 		PRINT_INFO("BlockSize\t->\t0x%08x\r\n", pRelocBlock->SizeOfBlock);
 		PRINT_INFO("BlockCount\t->\t%d\r\n", entryCount);
 		PIMAGE_SECTION_HEADER pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pRelocBlock->VirtualAddress);
-		PRINT_INFO("节区\t\t->\t%s\r\n\n", pSection->Name);
+		PRINT_INFO("节区\t\t->\t%s\r\n\n", GetSectionName(pSection));
 		PRINT_INFO("序号\tTypeOffset\t类型\t\tRVA地址\t\tFOA地址\n");
 		PRINT_INFO("----------------------------------------------------------------\n");
 		for (size_t i = 0; i < entryCount; i++)
@@ -1386,13 +1386,13 @@ void CmdTLS(const CHAR* param)
 	PRINT_TITLE("\n==== TLS Table Info ====\n");
 	PIMAGE_SECTION_HEADER pSection = nullptr;
 	pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pTls->StartAddressOfRawData - g_pNtHeaders->OptionalHeader.ImageBase);
-	PRINT_INFO("StartAddressOfRawData\t->\t%08x\t%s\n", pTls->StartAddressOfRawData, pSection->Name);
+	PRINT_INFO("StartAddressOfRawData\t->\t%08x\t%s\n", pTls->StartAddressOfRawData, GetSectionName(pSection));
 	pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pTls->EndAddressOfRawData - g_pNtHeaders->OptionalHeader.ImageBase);
-	PRINT_INFO("EndAddressOfRawData\t->\t%08x\t%s\n", pTls->EndAddressOfRawData, pSection->Name);
+	PRINT_INFO("EndAddressOfRawData\t->\t%08x\t%s\n", pTls->EndAddressOfRawData, GetSectionName(pSection));
 	pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pTls->AddressOfIndex - g_pNtHeaders->OptionalHeader.ImageBase);
-	PRINT_INFO("AddressOfIndex\t\t->\t%08x\t%s\n", pTls->AddressOfIndex, pSection->Name);
+	PRINT_INFO("AddressOfIndex\t\t->\t%08x\t%s\n", pTls->AddressOfIndex, GetSectionName(pSection));
 	pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pTls->AddressOfCallBacks - g_pNtHeaders->OptionalHeader.ImageBase);
-	PRINT_INFO("AddressOfCallBacks\t->\t%08x\t%s\n", pTls->AddressOfCallBacks, pSection->Name);
+	PRINT_INFO("AddressOfCallBacks\t->\t%08x\t%s\n", pTls->AddressOfCallBacks, GetSectionName(pSection));
 	PDWORD pCall = (PDWORD)(g_lpFileBuffer + RvaToFoa(pTls->AddressOfCallBacks - g_pNtHeaders->OptionalHeader.ImageBase));
 	PRINT_TITLE("\t序号\t地址\t\t节区\n");
 	int index = 0;
@@ -1400,7 +1400,7 @@ void CmdTLS(const CHAR* param)
 	{
 		DWORD addr = *pCall;
 		pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, addr - g_pNtHeaders->OptionalHeader.ImageBase);
-		PRINT_ERROR("\t%d\t%08x\t%s\n", index++, addr, pSection->Name);
+		PRINT_ERROR("\t%d\t%08x\t%s\n", index++, addr, GetSectionName(pSection));
 		pCall++;
 	}
 	PRINT_INFO("SizeOfZeroFill\t\t->\t%08x\n", pTls->SizeOfZeroFill);
@@ -1501,13 +1501,11 @@ void CmdIAT(const CHAR* param)
 	}
 	PRINT_TITLE("\n==== IAT表 ====\n");
 	PIMAGE_SECTION_HEADER pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, iatDir.VirtualAddress);
-	char name[IMAGE_SIZEOF_SHORT_NAME+1] = {};
-	memcpy_s(name, IMAGE_SIZEOF_SHORT_NAME, pSection->Name, IMAGE_SIZEOF_SHORT_NAME);
 	PRINT_INFO("VirtualAddress->%08X\tFOA->%08x\tSize->%08x\t节区:%s\n", 
 		iatDir.VirtualAddress, 
 		RvaToFoa(iatDir.VirtualAddress), 
 		iatDir.Size,
-		name);
+		GetSectionName(pSection));
 	PRINT_INFO("序号\tRVA\t\tFOA\t\tHint\t名称\n");
 	PIMAGE_THUNK_DATA pThunk = (PIMAGE_THUNK_DATA)(g_lpFileBuffer + RvaToFoa(iatDir.VirtualAddress));
 	for (size_t i = 0; i < iatDir.Size / sizeof(DWORD); i++)
@@ -1776,9 +1774,7 @@ void CmdDump(const CHAR* param)
 			memcpy_s(fileBuff, nt.OptionalHeader.SizeOfHeaders, buff, nt.OptionalHeader.SizeOfHeaders);
 			for (size_t i = 0; i < nt.FileHeader.NumberOfSections; i++)
 			{
-				char name[IMAGE_SIZEOF_SHORT_NAME + 1] = {};
-				memcpy_s(name, IMAGE_SIZEOF_SHORT_NAME, pSection[i].Name, IMAGE_SIZEOF_SHORT_NAME);
-				PRINT_INFO("%-8s\tPointerToRawData->%08x\tSizeOfRawData->%08x\n", name, pSection[i].PointerToRawData, pSection[i].SizeOfRawData);
+				PRINT_INFO("%-8s\tPointerToRawData->%08x\tSizeOfRawData->%08x\n", GetSectionName(pSection), pSection[i].PointerToRawData, pSection[i].SizeOfRawData);
 				if (pSection[i].SizeOfRawData > 0)
 				{
 					memcpy_s(fileBuff + pSection[i].PointerToRawData, pSection[i].SizeOfRawData, buff + pSection[i].VirtualAddress, pSection[i].SizeOfRawData);
@@ -1907,6 +1903,13 @@ bool ReadFileMemory(const char* fileName, PBYTE buff, DWORD length)
 	fread(buff, 1, length, file);
 	fclose(file);
 	return true;
+}
+
+const char* GetSectionName(PIMAGE_SECTION_HEADER pSection)
+{
+	ZeroMemory(g_SectionName, IMAGE_SIZEOF_SHORT_NAME);
+	memcpy_s(g_SectionName, IMAGE_SIZEOF_SHORT_NAME, pSection->Name, IMAGE_SIZEOF_SHORT_NAME);
+	return g_SectionName;
 }
 
 CmdHandler FindCmdHandler(const CHAR* cmd)
