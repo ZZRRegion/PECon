@@ -104,6 +104,7 @@ void CmdDump(CONST CHAR* param);
 void CmdExit(CONST CHAR* param);
 void CmdRead(CONST CHAR* param);
 void CmdReadStr(CONST CHAR* param);
+void CmdShellCode(CONST CHAR* param);
 void FreeLoadedFile();
 bool ReadFileMemory(const char* file, PBYTE buff, DWORD length);
 const char* GetSectionName(PIMAGE_SECTION_HEADER pSection, bool first = true);
@@ -148,6 +149,7 @@ static const CmdEntry CMD_TABLE[] =
 	{"exit",			CmdExit},
 	{"read",			CmdRead},
 	{"readStr",			CmdReadStr},
+	{"shellcode",       CmdShellCode},
 	{nullptr, nullptr}
 };
 // ==============================================
@@ -365,6 +367,7 @@ VOID ShowMenu()
 	PRINT_MENU("\tcmp\t\t- 二进制比较文件\n");
 	PRINT_MENU("\tdump\t\t- dump进程文件 dump 1234 //PID\n");
 	PRINT_MENU("\texit\t\t- 退出程序\n");
+	PRINT_MENU("\tshellcode\t- 更改OPE先执行函数\n");
 	PRINT_MENU("当前加载文件：%s\n", fileName);
 	PRINT_INFO("请输入命令> ");
 }
@@ -472,6 +475,7 @@ int main()
 	//file = "D:\\DriverDevelop\\InstDrv\\InstDrv.exe";
 	//file = R"(C:\Users\stdio\source\repos\PECon\PECon\SocketTool.exe)";
 	//file = R"(D:\Soft\SocketTool.exe)";
+	file = R"(C:\Users\stdio\Desktop\SocketTool.exe)";
 	CmdLoad(file);
 	while(1)
 	{
@@ -2078,6 +2082,109 @@ void CmdReadStr(const CHAR* param)
 	DWORD dwFoa = RvaToFoa(dwRva);
 	PBYTE str = g_lpFileBuffer + dwFoa;
 	PRINT_INFO("字符：%s\n", str);
+}
+bool WriteFile(PBYTE data, DWORD length)
+{
+	const char* fileName = "./wo.exe";
+	FILE* file = nullptr;
+	fopen_s(&file, fileName, "wb");
+	if (file == nullptr)
+	{
+		PRINT_ERROR("打开文件失败:%s->%d\n", fileName, GetLastError());
+		return false;
+	}
+	fwrite(data, 1, length, file);
+	fclose(file);
+	return true;
+}
+void CmdShellCode(CONST CHAR* param)
+{
+	if (g_pNtHeaders == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'命令加载PE文件\r\n");
+		return;
+	}
+	PRINT_TITLE("\n==== shellcode ====\n");
+	PIMAGE_SECTION_HEADER pSection = g_pSectionHeader;
+	DWORD dwFoa = 0;
+	DWORD length = 0;
+	const DWORD MAXZERO = 16 * 4;
+	PBYTE startData = nullptr;
+	for (size_t i = 0; i < g_pNtHeaders->FileHeader.NumberOfSections; i++)
+	{
+		if (pSection[i].Characteristics & IMAGE_SCN_MEM_EXECUTE)
+		{
+			PRINT_INFO("节区->%s\n", GetSectionName(pSection));
+			for (PBYTE data = (g_lpFileBuffer + pSection->PointerToRawData); data < (g_lpFileBuffer + pSection->PointerToRawData + pSection->SizeOfRawData); data++)
+			{
+				if (*data == 0)
+				{
+					length++;
+					if (length >= MAXZERO)
+					{
+						startData = data - length;
+						break;
+					}
+				}
+				else
+				{
+					length = 0;
+				}
+			}
+			break;
+		}
+	}
+	if (startData)
+	{
+		DWORD insertAddr = startData - g_lpFileBuffer;
+		if (insertAddr % 16)
+		{
+			insertAddr = (insertAddr / 16 + 1) * 16;
+		}
+		DWORD dwRva = FoaToRva(insertAddr);
+		DWORD va = g_pNtHeaders->OptionalHeader.ImageBase + dwRva;
+		PRINT_INFO("写入起始RVA->%08x\tFOA->%08x\n", dwRva, insertAddr);
+		//以下完成如下指令
+		// Invoke MessageBoxA(NULL, NULL, NULL, NULL);
+		// jmp OPE
+		char shellcode[] = {
+			0x6A, 0x01, //push 0
+			0x6A, 0x00, //push 0
+			0x6A, 0x00, //push 0
+			0x6A, 0x00, //push 0
+			0xE8, 0x5F, 0x88, 0xC4, 0x75, //call MessageBoxA
+			0xE9, 0x4E, 0xFE, 0xFF, 0xFF  // JMP OEP
+		};
+		//0x76101A50为MessageBoxA的VA地址
+		DWORD messageBoxAAddr = 0x76101A50;
+		//8为前面占用的4个push 0,5为call指令长度
+		DWORD callAddr = messageBoxAAddr - va - 8 - 5;
+		memcpy_s(shellcode + 9, 4, &callAddr, 4);
+		DWORD oep = g_pNtHeaders->OptionalHeader.ImageBase + g_pNtHeaders->OptionalHeader.AddressOfEntryPoint;
+		// 13为前面占用，5为jmp指令长度
+		DWORD jmpAddr = oep - va - 13 - 5;
+		memcpy_s(shellcode + 14, 4, &jmpAddr, 4);
+		//更改OEP
+		PRINT_INFO("更改OEP：%08x->%08x\n", g_pNtHeaders->OptionalHeader.AddressOfEntryPoint, dwRva);
+		g_pNtHeaders->OptionalHeader.AddressOfEntryPoint = dwRva;
+		//写入到文件内存中
+		PRINT_INFO("写入执行代码\n");
+		for (size_t i = 0; i < sizeof(shellcode); i++)
+		{
+			if (i % 16 == 0)
+			{
+				PRINT_INFO("\n");
+			}
+			PRINT_INFO("%02x ", (BYTE)shellcode[i]);
+		}
+		PRINT_INFO("\n");
+		memcpy_s(g_lpFileBuffer + insertAddr, sizeof(shellcode), shellcode, sizeof(shellcode));
+		WriteFile(g_lpFileBuffer, g_dwFileSize);
+	}
+	else
+	{
+		PRINT_ERROR("未找到合适的位置插入shellcode\n");
+	}
 }
 
 void FreeLoadedFile()
