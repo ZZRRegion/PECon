@@ -839,39 +839,36 @@ void CmdSection(const CHAR* param)
 		{IMAGE_SCN_MEM_READ				 , "Section is readable."},
 		{IMAGE_SCN_MEM_WRITE             , "Section is writeable."}
 	};
+	DWORD totalVirtualSize = 0;
+	DWORD totalRawSize = 0;
+	PRINT_TITLE("#\tName\t\tVSize\t\tVA\t\t\tSizeData\tPData\t\t\t属性\n");
 	for (size_t i = 0; i < g_pNtHeaders->FileHeader.NumberOfSections; i++)
 	{
-		PIMAGE_SECTION_HEADER pSection = &g_pSectionHeader[i];
-		PRINT_INFO("===================================%s========================================\n", GetSectionName(pSection));
-		PRINT_INFO("	0004h	Name		->	%s		//节区名称\r\n", GetSectionName(pSection));
-		PRINT_INFO("	0004h	VirtualSize	->	0x%08x	//RVA大小\r\n", pSection->Misc.VirtualSize);
-		PRINT_INFO("	0004h	VirtualAddress	->	0x%08x	//RVA起始\r\n", pSection->VirtualAddress);
-		PRINT_INFO("	0004h	SizeOfRawData	->	0x%08x	//FOA大小\r\n", pSection->SizeOfRawData);
-		PRINT_INFO("	0004h	PointerToRawData->	0x%08x	//FOA起始\r\n", pSection->PointerToRawData);
-		PRINT_INFO("	0004h	Characteristics	->	0x%08x	//节区属性\r\n", pSection->Characteristics);
-		for (size_t i = 0; i < sizeof(scnFlags) / sizeof(scnFlags[0]); i++)
+		PIMAGE_SECTION_HEADER pSection = g_pSectionHeader + i;
+		PRINT_INFO("%d\t%-8s\t%08x\t%08x~%08x\t%08x\t%08x~%08x\t%08x\n", 
+			i, 
+			GetSectionName(pSection),
+			pSection->Misc.VirtualSize,
+			pSection->VirtualAddress + pSection->Misc.VirtualSize,
+			pSection->VirtualAddress,
+			pSection->SizeOfRawData,
+			pSection->PointerToRawData,
+			pSection->PointerToRawData + pSection->SizeOfRawData,
+			pSection->Characteristics);
+		totalVirtualSize += pSection->Misc.VirtualSize;
+		totalRawSize += pSection->SizeOfRawData;
+		/*for (size_t i = 0; i < sizeof(scnFlags) / sizeof(scnFlags[0]); i++)
 		{
 			if (pSection->Characteristics & scnFlags[i].flag)
 			{
-				PRINT_ERROR("		FLAG->0x%08x	INFO->%s\n", scnFlags[i].flag, scnFlags[i].desc);
+				PRINT_ERROR("\tFLAG->0x%08x\tINFO->%s\n", scnFlags[i].flag, scnFlags[i].desc);
 			}
-		}
-		PRINT_INFO("================================================================================\n");
+		}*/
 	}
 	PRINT_INFO("\nSummary\n");
 	PRINT_INFO("Total Section:%d\n", g_pNtHeaders->FileHeader.NumberOfSections);
-
-	DWORD totalVirtualSize = 0;
-	DWORD totalRawSize = 0;
-	for (size_t i = 0; i < g_pNtHeaders->FileHeader.NumberOfSections; i++)
-	{
-		totalVirtualSize += g_pSectionHeader[i].Misc.VirtualSize;
-		totalRawSize += g_pSectionHeader[i].SizeOfRawData;
-	}
-
 	PRINT_INFO("Total Virtual Size:%d\n", totalVirtualSize);
 	PRINT_INFO("Total Raw Size:%d\n", totalRawSize);
-
 }
 void CmdString(const CHAR* param)
 {
