@@ -994,23 +994,36 @@ void CmdImport(const CHAR* param)
 		PRINT_ERROR("错误\t->\t无导入表\r\n");
 		return;
 	}
-	
-	PIMAGE_IMPORT_DESCRIPTOR pImport = (PIMAGE_IMPORT_DESCRIPTOR)(g_lpFileBuffer + RvaToFoa(dir.VirtualAddress));
+	DWORD dwFoa = RvaToFoa(dir.VirtualAddress);
+	PIMAGE_IMPORT_DESCRIPTOR pImport = (PIMAGE_IMPORT_DESCRIPTOR)(g_lpFileBuffer + dwFoa);
 	PRINT_TITLE("==============导入表信息==============\n");
-	PRINT_ERROR("#  OriFirThk OriFOA    OriFOAEnd Name      FirThk    FOA       FEnd      名称\n");
+	PRINT_INFO("VA->%08x~%08x\tFOA->%08x~%08x\tSize->%08x\t%s\n",
+		dir.VirtualAddress,
+		dir.VirtualAddress + dir.Size,
+		dwFoa,
+		dwFoa + dir.Size,
+		dir.Size,
+		GetSectionNameByRVA(dir.VirtualAddress));
+	if (*param == 0)
+	{
+		PRINT_ERROR("#  OriFirThk %-8s  OriFOA    OriFOAEnd Name      FirThk    %-8s  FOA       FEnd      名称\n",
+			"节区", "节区");
+	}
 	int index = 0;
 	while (pImport->OriginalFirstThunk != 0 || pImport->FirstThunk != 0)
 	{
 		PBYTE name = g_lpFileBuffer + RvaToFoa(pImport->Name);
 		if (*param == 0)
 		{
-			PRINT_INFO("%-3d%08X  %08X  %08X  %08X  %08X  %08X  %08X  %s\n",
+			PRINT_INFO("%-3d%08X  %-8s  %08X  %08X  %08X  %08X  %-8s  %08X  %08X  %s\n",
 				index++,
 				pImport->OriginalFirstThunk,
+				GetSectionNameByRVA(pImport->OriginalFirstThunk),
 				RvaToFoa(pImport->OriginalFirstThunk),
 				RvaToFoa(pImport->OriginalFirstThunk) + GetThunkDataLength(pImport->OriginalFirstThunk),
 				pImport->Name,
 				pImport->FirstThunk,
+				GetSectionNameByRVA(pImport->FirstThunk),
 				RvaToFoa(pImport->FirstThunk),
 				RvaToFoa(pImport->FirstThunk) + GetThunkDataLength(pImport->FirstThunk),
 				name);
@@ -1050,14 +1063,14 @@ void CmdImport(const CHAR* param)
 				continue;
 			}
 			PRINT_INFO("\n导入函数列表\n");
-			PRINT_INFO("序号\tThunkRva\tOrdinal\t\tHint\t名称\n");
+			PRINT_INFO("序号\tThunkRva\t节区\t\tFOA\t\tOrdinal\t\tHint\t名称\n");
 			PRINT_INFO("----------------------------------------------\n");
 			for (size_t j = 0; pData->u1.AddressOfData != 0; j++, pData++)
 			{
 				if (IMAGE_SNAP_BY_ORDINAL(pData->u1.Ordinal))
 				{
 					WORD ordinal = IMAGE_ORDINAL(pData->u1.Ordinal);
-					PRINT_INFO("%d\t\t\t%08x\n", j, ordinal);
+					PRINT_INFO("%d\t\t\t\t\t\t\t%08x\n", j, ordinal);
 				}
 				else
 				{
@@ -1065,9 +1078,11 @@ void CmdImport(const CHAR* param)
 					if (dwNameFoa)
 					{
 						PIMAGE_IMPORT_BY_NAME pImportName = (PIMAGE_IMPORT_BY_NAME)(g_lpFileBuffer + dwNameFoa);
-						PRINT_INFO("%d\t%08x\t\t\t%04x\t%-25s\n",
+						PRINT_INFO("%d\t%08x\t%-8s\t%08x\t\t\t%04x\t%-25s\n",
 							j,
 							pData->u1.AddressOfData,
+							GetSectionNameByRVA(pData->u1.AddressOfData),
+							dwNameFoa,
 							pImportName->Hint,
 							pImportName->Name);
 					}
