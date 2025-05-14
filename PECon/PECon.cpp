@@ -83,6 +83,7 @@ void CmdSection(CONST CHAR* param);
 void CmdString(CONST CHAR* param);
 void CmdImport(CONST CHAR* param);
 void CmdExport(CONST CHAR* param);
+void CmdResource(CONST CHAR* param);
 void CmdGetExportFuncAddrByName(CONST CHAR* param);
 void CmdGetExportFuncAddrByIndex(CONST CHAR* param);
 void CmdRelocation(CONST CHAR* param);
@@ -123,6 +124,7 @@ static const CmdEntry CMD_TABLE[] =
 	{"string",          CmdString},
 	{"import",			CmdImport},
 	{"export",			CmdExport},
+	{"resource",        CmdResource},
 	{"getprocname",		CmdGetExportFuncAddrByName},
 	{"getprocindex",	CmdGetExportFuncAddrByIndex},
 	{"relocation",		CmdRelocation},
@@ -339,6 +341,7 @@ VOID ShowMenu()
 	PRINT_MENU("    string		- 显示字符串\n");
 	PRINT_MENU("    import		- 显示IMPORT数据\n");
 	PRINT_MENU("    export		- 显示EXPORT\n");
+	PRINT_MENU("    resource	- 显示资源\n");
 	PRINT_MENU("    getprocname		- 查找指定函数名称地址RVA\n");
 	PRINT_MENU("    getprocindex	- 查找指定函数序号地址RVA\n");
 	PRINT_MENU("    relocation		- 显示RELOCATION数据\n");
@@ -1192,6 +1195,30 @@ void CmdExport(const CHAR* param)
 			PRINT_INFO("%08x\t%08x\t%s\t%s\n", name, 0, GetSectionNameByRVA(name), "<NO NAME>");
 		}
 	}
+}
+
+void CmdResource(const CHAR* param)
+{
+	if (g_pNtHeaders == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'加载PE文件\r\n");
+		return;
+	}
+	IMAGE_DATA_DIRECTORY resDir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_RESOURCE];
+	if (resDir.VirtualAddress == 0 || resDir.Size == 0)
+	{
+		PRINT_ERROR("错误\t->当前PE文件无资源表\n");
+		return;
+	}
+	DWORD dwFoa = RvaToFoa(resDir.VirtualAddress);
+	PRINT_TITLE("\n==== 资源表 ====\n");
+	PRINT_INFO("VA->%08x~%08x\tFOA->%08x~%08x\tSize->%08x\t节区->%s\n",
+		resDir.VirtualAddress,
+		resDir.VirtualAddress + resDir.Size,
+		dwFoa,
+		dwFoa + resDir.Size,
+		resDir.Size,
+		GetSectionNameByRVA(resDir.VirtualAddress));
 }
 
 void CmdGetExportFuncAddrByName(const CHAR* param)
