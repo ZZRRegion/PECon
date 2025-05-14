@@ -86,6 +86,7 @@ void CmdExport(CONST CHAR* param);
 void CmdResource(CONST CHAR* param);
 void CmdException(CONST CHAR* param);
 void CmdSecurity(CONST CHAR* param);
+void CmdDebug(CONST CHAR* param);
 void CmdGetExportFuncAddrByName(CONST CHAR* param);
 void CmdGetExportFuncAddrByIndex(CONST CHAR* param);
 void CmdRelocation(CONST CHAR* param);
@@ -129,9 +130,10 @@ static const CmdEntry CMD_TABLE[] =
 	{"resource",        CmdResource},
 	{"exception",       CmdException},
 	{"security",        CmdSecurity},
+	{"relocation",		CmdRelocation},
+	{"debug",           CmdDebug},
 	{"getprocname",		CmdGetExportFuncAddrByName},
 	{"getprocindex",	CmdGetExportFuncAddrByIndex},
-	{"relocation",		CmdRelocation},
 	{"reloc-color",     CmdRelocColor},
 	{"tls",             CmdTLS},		
 	{"loadconfig",      CmdLoadConfig},
@@ -348,6 +350,7 @@ VOID ShowMenu()
 	PRINT_MENU("\tresource\t- 显示资源\n");
 	PRINT_MENU("\texception\t- 显示异常表\n");
 	PRINT_MENU("\tsecurity\t- 显示\n");
+	PRINT_MENU("\tdebug\t\t-> 调试\n");
 	PRINT_MENU("\tgetprocname\t- 查找指定函数名称地址RVA\n");
 	PRINT_MENU("\tgetprocindex\t- 查找指定函数序号地址RVA\n");
 	PRINT_MENU("\trelocation\t- 显示RELOCATION数据\n");
@@ -1273,6 +1276,43 @@ void CmdSecurity(const CHAR* param)
 		dwFoa + securityDir.Size,
 		securityDir.Size,
 		GetSectionNameByRVA(securityDir.VirtualAddress));
+}
+
+void CmdDebug(CONST CHAR* param)
+{
+	if (g_pNtHeaders == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'加载PE文件\r\n");
+		return;
+	}
+	IMAGE_DATA_DIRECTORY debugDir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_DEBUG];
+	if (debugDir.VirtualAddress == 0 || debugDir.Size == 0)
+	{
+		PRINT_ERROR("错误\t->当前PE文件无debug表\n");
+		return;
+	}
+	DWORD dwFoa = RvaToFoa(debugDir.VirtualAddress);
+	PRINT_TITLE("\n==== debug表 ====\n");
+	PRINT_INFO("VA->%08x~%08x\tFOA->%08x~%08x\tSize->%08x\t%s\n",
+		debugDir.VirtualAddress,
+		debugDir.VirtualAddress + debugDir.Size,
+		dwFoa,
+		dwFoa + debugDir.Size,
+		debugDir.Size,
+		GetSectionNameByRVA(debugDir.VirtualAddress));
+	PIMAGE_DEBUG_DIRECTORY pDebug = (PIMAGE_DEBUG_DIRECTORY)(g_lpFileBuffer + dwFoa);
+	DWORD entry_count = debugDir.Size / sizeof(IMAGE_DEBUG_DIRECTORY);
+	PRINT_TITLE("#\tType\t\tSizeOfData\tAddressOfRawData\tPointerToRawData\n");
+	for (size_t i = 0; i < entry_count; i++)
+	{
+		PIMAGE_DEBUG_DIRECTORY p = pDebug + i;
+		PRINT_INFO("%d\t%08x\t%08x\t%08x\t\t%08x\n",
+			i,
+			p->Type,
+			p->SizeOfData,
+			p->AddressOfRawData,
+			p->PointerToRawData);
+	}
 }
 
 void CmdGetExportFuncAddrByName(const CHAR* param)
