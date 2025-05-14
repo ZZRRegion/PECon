@@ -1582,14 +1582,15 @@ void CmdRvaToFoa(const CHAR* param)
 
 	for (size_t i = 0; i < g_pNtHeaders->FileHeader.NumberOfSections; i++)
 	{
-		DWORD dwStartRva = g_pSectionHeader[i].VirtualAddress;
-		DWORD dwEndRva = g_pSectionHeader[i].VirtualAddress + g_pSectionHeader[i].Misc.VirtualSize;
+		PIMAGE_SECTION_HEADER pSection = g_pSectionHeader + i;
+		DWORD dwStartRva = pSection->VirtualAddress;
+		DWORD dwEndRva = pSection->VirtualAddress + pSection->Misc.VirtualSize;
 
 		if (dwRva >= dwStartRva && dwRva < dwEndRva)
 		{
-			PRINT_INFO("所属节区：%s\n", g_pSectionHeader[i].Name);
+			PRINT_INFO("所属节区：%s\n", GetSectionName(pSection));
 			PRINT_INFO("节区RVA范围：0x%08X - 0x%08X\n", dwStartRva, dwEndRva);
-			PRINT_INFO("节区FOA范围：0x%08X - 0x%08X\n", g_pSectionHeader[i].PointerToRawData, g_pSectionHeader[i].PointerToRawData + g_pSectionHeader[i].SizeOfRawData);
+			PRINT_INFO("节区FOA范围：0x%08X - 0x%08X\n", pSection->PointerToRawData, pSection->PointerToRawData + pSection->SizeOfRawData);
 		}
 	}
 }
@@ -1625,14 +1626,15 @@ void CmdFoaToRva(const CHAR* param)
 
 	for (size_t i = 0; i < g_pNtHeaders->FileHeader.NumberOfSections; i++)
 	{
-		DWORD dwStartRva = g_pSectionHeader[i].VirtualAddress;
-		DWORD dwEndRva = g_pSectionHeader[i].VirtualAddress + g_pSectionHeader[i].Misc.VirtualSize;
+		PIMAGE_SECTION_HEADER pSection = g_pSectionHeader + i;
+		DWORD dwStartRva = pSection->VirtualAddress;
+		DWORD dwEndRva = pSection->VirtualAddress + pSection->Misc.VirtualSize;
 
 		if (dwRva >= dwStartRva && dwRva < dwEndRva)
 		{
-			PRINT_INFO("所属节区：%s\n", g_pSectionHeader[i].Name);
+			PRINT_INFO("所属节区：%s\n", GetSectionName(pSection));
 			PRINT_INFO("节区RVA范围：0x%08X - 0x%08X\n", dwStartRva, dwEndRva);
-			PRINT_INFO("节区FOA范围：0x%08X - 0x%08X\n", g_pSectionHeader[i].PointerToRawData, g_pSectionHeader[i].PointerToRawData + g_pSectionHeader[i].SizeOfRawData);
+			PRINT_INFO("节区FOA范围：0x%08X - 0x%08X\n", pSection->PointerToRawData, pSection->PointerToRawData + pSection->SizeOfRawData);
 		}
 	}
 }
