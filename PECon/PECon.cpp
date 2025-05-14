@@ -880,13 +880,12 @@ void CmdString(const CHAR* param)
 		return;
 	}
 	PRINT_TITLE("\n==== 字符串 ====\n");
-	PRINT_INFO("序号\t偏移\t地址\t\t节区\t大小\t字符串\n");
+	PRINT_INFO("ImageBase->%08x\n", g_pNtHeaders->OptionalHeader.ImageBase);
+	PRINT_INFO("#\t%-6s%-10s%-10s%-8sSize\t字符串\n", "FOA", "RVA", "VA", "节区");
 	PBYTE stringStart = nullptr;
 	DWORD index = 0;
-	const int BUFFERLENGTH = 60;
+	const int BUFFERLENGTH = 50;
 	char* buffer = new char[BUFFERLENGTH];
-	const int SECTIONMAXNAME = 20;
-	char* sectionName = new char[SECTIONMAXNAME];
 	for (DWORD i = 0; i < g_dwFileSize; i++)
 	{
 		PBYTE current = g_lpFileBuffer + i;
@@ -906,33 +905,30 @@ void CmdString(const CHAR* param)
 				if (length >= 5)
 				{
 					ZeroMemory(buffer, BUFFERLENGTH);
-					memcpy_s(buffer, BUFFERLENGTH, stringStart, length > BUFFERLENGTH - 1 ? BUFFERLENGTH : length);
-					ZeroMemory(sectionName, SECTIONMAXNAME);
-					strcpy_s(sectionName, SECTIONMAXNAME, "PE头");
+					memcpy_s(buffer, BUFFERLENGTH - 1, stringStart, length > BUFFERLENGTH - 1 ? BUFFERLENGTH - 1 : length);
+					ZeroMemory(g_SectionName, IMAGE_SIZEOF_SHORT_NAME + 1);
+					strcpy_s(g_SectionName, IMAGE_SIZEOF_SHORT_NAME, "PE头");
 					DWORD offset = (stringStart - g_lpFileBuffer);
 					DWORD imageBase = g_pNtHeaders->OptionalHeader.ImageBase;
 					DWORD va = imageBase + offset;
+					DWORD dwRva = offset;
 					if (offset > g_pNtHeaders->OptionalHeader.SizeOfHeaders)
 					{
-						for (size_t j = 0; j < g_pNtHeaders->FileHeader.NumberOfSections; j++)
+						dwRva = FoaToRva(offset);
+						if (dwRva > 0)
 						{
-							PIMAGE_SECTION_HEADER pSection = g_pSectionHeader + j;
-							if (offset >= pSection->PointerToRawData &&
-								offset < pSection->PointerToRawData + pSection->SizeOfRawData)
-							{
-								ZeroMemory(sectionName, SECTIONMAXNAME);
-								memcpy_s(sectionName, SECTIONMAXNAME, GetSectionName(pSection), IMAGE_SIZEOF_SHORT_NAME);
-								va = imageBase + pSection->VirtualAddress + offset - pSection->PointerToRawData;
-								break;
-							}
+							PIMAGE_SECTION_HEADER pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, dwRva);
+							GetSectionName(pSection);
+							va = imageBase + dwRva;
 						}
 					}
 					
-					PRINT_INFO("%d\t%04x\t%08x\t%s\t%02x\t%s\n",
+					PRINT_INFO("%d\t%04x  %08x  %08x  %-8s%02x\t%s\n",
 						index++, 
 						offset, 
+						dwRva,
 						va, 
-						sectionName,
+						g_SectionName,
 						length, 
 						buffer);
 				}
