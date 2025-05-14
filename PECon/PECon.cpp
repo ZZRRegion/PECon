@@ -1147,11 +1147,15 @@ void CmdExport(const CHAR* param)
 	dwFoa = RvaToFoa(pExport->AddressOfNameOrdinals);
 	WORD* pOrd = (WORD*)(g_lpFileBuffer + dwFoa);
 	PRINT_ERROR("=========================导出函数=====================\n");
-	PRINT_ERROR("Ordinal\tRVA\t\tFOA\t\tNameRva\t\tNameFOA\t\t节区\tName\n");
+	PRINT_ERROR("Ordinal\tRVA\t\tFOA\t\t节区\tNameRva\t\tNameFOA\t\t节区\tName\n");
 	for (size_t i = 0; i < pExport->NumberOfFunctions; i++)
 	{
 		DWORD name = NULL;
-		PRINT_INFO("%04x\t%08x\t%08x\t", i + pExport->Base, pFunctions[i], RvaToFoa(pFunctions[i]));
+		PRINT_INFO("%04x\t%08x\t%08x\t%-8s", 
+			i + pExport->Base, 
+			pFunctions[i], 
+			RvaToFoa(pFunctions[i]), 
+			GetSectionNameByRVA(pFunctions[i]));
 		if (pFunctions[i] != 0)
 		{
 			for (size_t j = 0; j < pExport->NumberOfNames; j++)
@@ -1165,11 +1169,11 @@ void CmdExport(const CHAR* param)
 		}
 		if (name != 0)
 		{
-			PRINT_INFO("%08x\t%08x\t%s\t%s\n", name, RvaToFoa(name), GetSectionNameByRVA(pFunctions[i]), (const char*)(g_lpFileBuffer + RvaToFoa(name)));
+			PRINT_INFO("%08x\t%08x\t%s\t%s\n", name, RvaToFoa(name), GetSectionNameByRVA(name), (const char*)(g_lpFileBuffer + RvaToFoa(name)));
 		}
 		else
 		{
-			PRINT_INFO("%08x\t%08x\t%s\t%s\n", name, 0, GetSectionNameByRVA(pFunctions[i]), "<NO NAME>");
+			PRINT_INFO("%08x\t%08x\t%s\t%s\n", name, 0, GetSectionNameByRVA(name), "<NO NAME>");
 		}
 	}
 }
@@ -1966,7 +1970,10 @@ bool ReadFileMemory(const char* fileName, PBYTE buff, DWORD length)
 const char* GetSectionName(PIMAGE_SECTION_HEADER pSection)
 {
 	ZeroMemory(g_SectionName, IMAGE_SIZEOF_SHORT_NAME);
-	memcpy_s(g_SectionName, IMAGE_SIZEOF_SHORT_NAME, pSection->Name, IMAGE_SIZEOF_SHORT_NAME);
+	if (pSection)
+	{
+		memcpy_s(g_SectionName, IMAGE_SIZEOF_SHORT_NAME, pSection->Name, IMAGE_SIZEOF_SHORT_NAME);
+	}
 	return g_SectionName;
 }
 const char* GetSectionNameByRVA(DWORD dwRva)
