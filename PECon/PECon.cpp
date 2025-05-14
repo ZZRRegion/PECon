@@ -1500,14 +1500,22 @@ void CmdIAT(const CHAR* param)
 		return;
 	}
 	PRINT_TITLE("\n==== IAT表 ====\n");
-	PRINT_INFO("序号\tRVA\t\tHint\t名称\n");
+	PIMAGE_SECTION_HEADER pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, iatDir.VirtualAddress);
+	char name[IMAGE_SIZEOF_SHORT_NAME+1] = {};
+	memcpy_s(name, IMAGE_SIZEOF_SHORT_NAME, pSection->Name, IMAGE_SIZEOF_SHORT_NAME);
+	PRINT_INFO("VirtualAddress->%08X\tFOA->%08x\tSize->%08x\t节区:%s\n", 
+		iatDir.VirtualAddress, 
+		RvaToFoa(iatDir.VirtualAddress), 
+		iatDir.Size,
+		name);
+	PRINT_INFO("序号\tRVA\t\tFOA\t\tHint\t名称\n");
 	PIMAGE_THUNK_DATA pThunk = (PIMAGE_THUNK_DATA)(g_lpFileBuffer + RvaToFoa(iatDir.VirtualAddress));
 	for (size_t i = 0; i < iatDir.Size / sizeof(DWORD); i++)
 	{
 		if (IMAGE_SNAP_BY_ORDINAL(pThunk[i].u1.Ordinal))
 		{
 			WORD ordinal = IMAGE_ORDINAL(pThunk[i].u1.Ordinal);
-			PRINT_INFO("%d\t\t\t%08x\n", i, ordinal);
+			PRINT_INFO("%d\t\t\t\t\t%08x\n", i, ordinal);
 		}
 		else
 		{
@@ -1515,9 +1523,10 @@ void CmdIAT(const CHAR* param)
 			if (dwNameFoa)
 			{
 				PIMAGE_IMPORT_BY_NAME pImportName = (PIMAGE_IMPORT_BY_NAME)(g_lpFileBuffer + dwNameFoa);
-				PRINT_INFO("%d\t%08x\t%04x\t%-25s\n",
+				PRINT_INFO("%d\t%08x\t%08x\t%04x\t%-25s\n",
 					i,
 					pThunk[i].u1.AddressOfData,
+					dwNameFoa,
 					pImportName->Hint,
 					pImportName->Name);
 			}
