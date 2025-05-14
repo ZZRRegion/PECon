@@ -754,7 +754,7 @@ void CmdNt(const CHAR* param)
 			PRINT_INFO("  FLAG 0x%04x info->%s\r\n", dllFlags[i].flag, dllFlags[i].desc);
 		}
 	}
-	PRINT_ERROR("	00014h	NumberOfRvaAndSizes	->	0x%08X	目录数量\r\n", pOptionalHeader->NumberOfRvaAndSizes);
+	PRINT_ERROR("NumberOfRvaAndSizes->0x%08X\t//数据目录数量\r\n", pOptionalHeader->NumberOfRvaAndSizes);
 
 	for (size_t i = 0; i < IMAGE_NUMBEROF_DIRECTORY_ENTRIES; i++)
 	{
@@ -782,13 +782,15 @@ void CmdNt(const CHAR* param)
 
 
 			}
-			PRINT_INFO("\t%d\tVirtualAddress		->	0x%08x	Size->0x%08x %s\t%s\r\n",
+			PRINT_INFO("%d\tVA->%08x~%08x\tFOA->%08x~%08x\tSize->%08x\t%s\t%s\r\n",
 				i,
 				pOptionalHeader->DataDirectory[i].VirtualAddress,
+				pOptionalHeader->DataDirectory[i].VirtualAddress + pOptionalHeader->DataDirectory[i].Size,
+				RvaToFoa(pOptionalHeader->DataDirectory[i].VirtualAddress),
+				RvaToFoa(pOptionalHeader->DataDirectory[i].VirtualAddress) + pOptionalHeader->DataDirectory[i].Size,
 				pOptionalHeader->DataDirectory[i].Size,
 				GetSectionName(pSection),
 				szDataDirectory);
-
 		}
 	}
 }
