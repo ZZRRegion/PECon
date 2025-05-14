@@ -452,8 +452,8 @@ int main()
 {
 	const char* file = R"(C:\Users\stdio\source\repos\PECon\Debug\PEDll.dll)";
 	//file = "D:\\DriverDevelop\\InstDrv\\InstDrv.exe";
-	file = R"(C:\Users\stdio\source\repos\PECon\PECon\SocketTool.exe)";
-	file = R"(D:\Soft\SocketTool.exe)";
+	//file = R"(C:\Users\stdio\source\repos\PECon\PECon\SocketTool.exe)";
+	//file = R"(D:\Soft\SocketTool.exe)";
 	CmdLoad(file);
 	while(1)
 	{
@@ -940,6 +940,19 @@ void CmdString(const CHAR* param)
 		}
 	}
 }
+DWORD GetThunkDataLength(DWORD thunkAddr)
+{
+	if (thunkAddr == 0)
+		return 0;
+	PIMAGE_THUNK_DATA pData = (PIMAGE_THUNK_DATA)(g_lpFileBuffer + RvaToFoa(thunkAddr));
+	DWORD length = 0;
+	while (pData->u1.AddressOfData)
+	{
+		length += sizeof(IMAGE_THUNK_DATA);
+		pData++;
+	}
+	return length;
+}
 void CmdImport(const CHAR* param)
 {
 	if (g_pSectionHeader == nullptr)
@@ -983,77 +996,88 @@ void CmdImport(const CHAR* param)
 		PRINT_ERROR("错误\t->\t无导入表\r\n");
 		return;
 	}
+	
 	PIMAGE_IMPORT_DESCRIPTOR pImport = (PIMAGE_IMPORT_DESCRIPTOR)(g_lpFileBuffer + RvaToFoa(dir.VirtualAddress));
 	PRINT_TITLE("==============导入表信息==============\n");
-	PRINT_ERROR("#\tOriFirstThunk\tOriFOA\t\tName\t\tFirstThunk\tFOA\t\t名称\n");
+	PRINT_ERROR("#  OriFirThk OriFOA    OriFOAEnd Name      FirThk    FOA       FEnd      名称\n");
 	int index = 0;
 	while (pImport->OriginalFirstThunk != 0 || pImport->FirstThunk != 0)
 	{
-		PRINT_INFO("%d\t%08X\t%08X\t%08x\t%08X\t%08x\t%s\n", 
-			index++, 
-			pImport->OriginalFirstThunk,
-			RvaToFoa(pImport->OriginalFirstThunk),
-			pImport->Name,
-			pImport->FirstThunk,
-			RvaToFoa(pImport->FirstThunk),
-			g_lpFileBuffer + RvaToFoa(pImport->Name));
-		PIMAGE_THUNK_DATA pINT = nullptr;
-		PIMAGE_THUNK_DATA pIAT = nullptr;
-		PIMAGE_THUNK_DATA pData = nullptr;
-		if (pImport->OriginalFirstThunk)
+		PBYTE name = g_lpFileBuffer + RvaToFoa(pImport->Name);
+		if (*param == 0)
 		{
-			DWORD dwINTFoa = RvaToFoa(pImport->OriginalFirstThunk);
-			if (dwINTFoa)
+			PRINT_INFO("%-3d%08X  %08X  %08X  %08X  %08X  %08X  %08X  %s\n",
+				index++,
+				pImport->OriginalFirstThunk,
+				RvaToFoa(pImport->OriginalFirstThunk),
+				RvaToFoa(pImport->OriginalFirstThunk) + GetThunkDataLength(pImport->OriginalFirstThunk),
+				pImport->Name,
+				pImport->FirstThunk,
+				RvaToFoa(pImport->FirstThunk),
+				RvaToFoa(pImport->FirstThunk) + GetThunkDataLength(pImport->FirstThunk),
+				name);
+		}
+		else if (strcmp(param, (const CHAR*)name) == 0)
+		{
+			PIMAGE_THUNK_DATA pINT = nullptr;
+			PIMAGE_THUNK_DATA pIAT = nullptr;
+			PIMAGE_THUNK_DATA pData = nullptr;
+			if (pImport->OriginalFirstThunk)
 			{
-				pINT = (PIMAGE_THUNK_DATA)(g_lpFileBuffer + dwINTFoa);
+				DWORD dwINTFoa = RvaToFoa(pImport->OriginalFirstThunk);
+				if (dwINTFoa)
+				{
+					pINT = (PIMAGE_THUNK_DATA)(g_lpFileBuffer + dwINTFoa);
+				}
 			}
-		}
-		if (pImport->FirstThunk)
-		{
-			DWORD dwIATFoa = RvaToFoa(pImport->FirstThunk);
-			if (dwIATFoa)
+			if (pImport->FirstThunk)
 			{
-				pIAT = (PIMAGE_THUNK_DATA)(g_lpFileBuffer + dwIATFoa);
+				DWORD dwIATFoa = RvaToFoa(pImport->FirstThunk);
+				if (dwIATFoa)
+				{
+					pIAT = (PIMAGE_THUNK_DATA)(g_lpFileBuffer + dwIATFoa);
+				}
 			}
-		}
-		if (pINT != nullptr)
-		{
-			pData = pINT;
-		}
-		else if (pIAT != nullptr)
-		{
-			pData = pIAT;
-		}
-		else
-		{
-			pImport++;
-			continue;
-		}
-		PRINT_INFO("\n导入函数列表\n");
-		PRINT_INFO("序号\tThunkRva\tOrdinal\t\tHint\t名称\n");
-		PRINT_INFO("----------------------------------------------\n");
-		for (size_t j = 0; pData->u1.AddressOfData != 0; j++, pData++)
-		{
-			if (IMAGE_SNAP_BY_ORDINAL(pData->u1.Ordinal))
+			if (pINT != nullptr)
 			{
-				WORD ordinal = IMAGE_ORDINAL(pData->u1.Ordinal);
-				PRINT_INFO("%d\t\t\t%08x\n", j, ordinal);
+				pData = pINT;
+			}
+			else if (pIAT != nullptr)
+			{
+				pData = pIAT;
 			}
 			else
 			{
-				DWORD dwNameFoa = RvaToFoa(pData->u1.AddressOfData);
-				if (dwNameFoa)
+				pImport++;
+				continue;
+			}
+			PRINT_INFO("\n导入函数列表\n");
+			PRINT_INFO("序号\tThunkRva\tOrdinal\t\tHint\t名称\n");
+			PRINT_INFO("----------------------------------------------\n");
+			for (size_t j = 0; pData->u1.AddressOfData != 0; j++, pData++)
+			{
+				if (IMAGE_SNAP_BY_ORDINAL(pData->u1.Ordinal))
 				{
-					PIMAGE_IMPORT_BY_NAME pImportName = (PIMAGE_IMPORT_BY_NAME)(g_lpFileBuffer + dwNameFoa);
-					PRINT_INFO("%d\t%08x\t\t\t%04x\t%-25s\n", 
-						j, 
-						pData->u1.AddressOfData, 
-						pImportName->Hint, 
-						pImportName->Name);
+					WORD ordinal = IMAGE_ORDINAL(pData->u1.Ordinal);
+					PRINT_INFO("%d\t\t\t%08x\n", j, ordinal);
+				}
+				else
+				{
+					DWORD dwNameFoa = RvaToFoa(pData->u1.AddressOfData);
+					if (dwNameFoa)
+					{
+						PIMAGE_IMPORT_BY_NAME pImportName = (PIMAGE_IMPORT_BY_NAME)(g_lpFileBuffer + dwNameFoa);
+						PRINT_INFO("%d\t%08x\t\t\t%04x\t%-25s\n",
+							j,
+							pData->u1.AddressOfData,
+							pImportName->Hint,
+							pImportName->Name);
+					}
 				}
 			}
+			PRINT_INFO("\n");
 		}
-		PRINT_INFO("\n");
+		
 		pImport++;
 	}
 
