@@ -349,7 +349,7 @@ VOID ShowMenu()
 	PRINT_MENU("    clear		- 清屏\n");
 	PRINT_MENU("    help		- 获取帮助\n");
 	PRINT_MENU("    cmp			- 二进制比较文件\n");
-	PRINT_MENU("    dump		- dump进程文件\n");
+	PRINT_MENU("    dump		- dump进程文件 dump 1234 //PID\n");
 	PRINT_MENU("    exit		- 退出程序\n");
 	PRINT_MENU("当前加载文件：%s\n", fileName);
 	PRINT_INFO("请输入命令> ");
@@ -407,12 +407,13 @@ DWORD RvaToFoa(DWORD dwRva)
 		// VIRTUALADDRESS
 		// RVA
 		// FOA
-		DWORD dwStartRva = g_pSectionHeader[i].VirtualAddress;
-		DWORD dwEndRva = g_pSectionHeader[i].VirtualAddress + g_pSectionHeader[i].Misc.VirtualSize;
+		PIMAGE_SECTION_HEADER pSection = g_pSectionHeader + i;
+		DWORD dwStartRva = pSection->VirtualAddress;
+		DWORD dwEndRva = pSection->VirtualAddress + pSection->Misc.VirtualSize;
 		if (dwRva >= dwStartRva && dwRva < dwEndRva)
 		{
 			DWORD dwOffset = dwRva - dwStartRva;
-			return g_pSectionHeader[i].PointerToRawData + dwOffset;
+			return pSection->PointerToRawData + dwOffset;
 		}
 	}
 	return 0;
@@ -435,12 +436,13 @@ DWORD FoaToRva(DWORD dwFoa)
 		// VIRTUALADDRESS
 		// RVA
 		// FOA
-		DWORD dwStartFoa = g_pSectionHeader[i].PointerToRawData;
-		DWORD dwEndFoa = g_pSectionHeader[i].PointerToRawData + g_pSectionHeader[i].SizeOfRawData;
+		PIMAGE_SECTION_HEADER pSection = g_pSectionHeader + i;
+		DWORD dwStartFoa = pSection->PointerToRawData;
+		DWORD dwEndFoa = pSection->PointerToRawData + pSection->SizeOfRawData;
 		if (dwFoa >= dwStartFoa && dwFoa < dwEndFoa)
 		{
 			DWORD dwOffset = dwFoa - dwStartFoa;
-			return g_pSectionHeader[i].VirtualAddress + dwOffset;
+			return pSection->VirtualAddress + dwOffset;
 		}
 	}
 	return 0;
@@ -1424,8 +1426,16 @@ void CmdLoadConfig(const CHAR* param)
 		PRINT_ERROR("错误\t->\t当前PE文件不存在加载配置表\r\n");
 		return;
 	}
+	DWORD dwRva = RvaToFoa(loadConfigDir.VirtualAddress);
+	PIMAGE_SECTION_HEADER pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, loadConfigDir.VirtualAddress);
 	PRINT_TITLE("\n==== LOAD_CONFIG Info ====\n");
-	PRINT_INFO("VirtualAddress\t->\t%08x\tSize\t->\t%08x\n", loadConfigDir.VirtualAddress, loadConfigDir.Size);
+	PRINT_INFO("VA->%08x~%08x\tFOA->%08x~%08x\tSize->%08x\t节区:%s\n", 
+		loadConfigDir.VirtualAddress, 
+		loadConfigDir.VirtualAddress + loadConfigDir.Size,
+		dwRva,
+		dwRva + loadConfigDir.Size,
+		loadConfigDir.Size,
+		GetSectionName(pSection));
 	PIMAGE_LOAD_CONFIG_DIRECTORY pLoadConfig = (PIMAGE_LOAD_CONFIG_DIRECTORY)(g_lpFileBuffer + RvaToFoa(loadConfigDir.VirtualAddress));
 
 }
