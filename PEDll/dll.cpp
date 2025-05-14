@@ -51,5 +51,9 @@ int Mul(int a, int b)
 }
 int Div(int a, int b)
 {
+	_asm
+	{
+		mov eax,0x12345678
+	}
 	return a / b;
 }

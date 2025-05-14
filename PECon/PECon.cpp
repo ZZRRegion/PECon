@@ -1112,20 +1112,34 @@ void CmdExport(const CHAR* param)
 		return;
 	}
 	DWORD dwFoa = RvaToFoa(exportDir.VirtualAddress);
-	PRINT_INFO("VA->0x%08X~%08x\tFOA->%08x~%08x\tSize->0x%08X\n\n", 
+	PRINT_INFO("VA->0x%08X~%08x\tFOA->%08x~%08x\tSize->0x%08X  节区->%s\n\n", 
 		exportDir.VirtualAddress,
 		exportDir.VirtualAddress + exportDir.Size,
 		dwFoa,
 		dwFoa + exportDir.Size,
-		exportDir.Size);
+		exportDir.Size,
+		GetSectionNameByRVA(exportDir.VirtualAddress));
 	PIMAGE_EXPORT_DIRECTORY pExport = (PIMAGE_EXPORT_DIRECTORY)(g_lpFileBuffer + dwFoa);
-	PRINT_INFO("0000h	Name\t\t\t->0x%08X\tFOA->%08x\tDLL名称：%s\n", pExport->Name, RvaToFoa(pExport->Name), g_lpFileBuffer + RvaToFoa(pExport->Name));
+	PRINT_INFO("0000h	Name\t\t\t->0x%08X  FOA->%08x  节区->%s\tDLL名称->%s\n", 
+		pExport->Name, 
+		RvaToFoa(pExport->Name), 
+		GetSectionNameByRVA(pExport->Name),
+		g_lpFileBuffer + RvaToFoa(pExport->Name));
 	PRINT_INFO("0000h	Base\t\t\t->0x%08X\t//导出函数的起始序号\n", pExport->Base);
 	PRINT_INFO("0000h	NumberOfFunctions\t->0x%08X\t//导出函数的数量(最大的导出序号-最小的导出序号+1)\n", pExport->NumberOfFunctions);
 	PRINT_INFO("0000h	NumberOfNames\t\t->0x%08X\t//函数名称导出的数量\n", pExport->NumberOfNames);
-	PRINT_INFO("0000h	AddressOfFunctions\t->0x%08X\tFOA->%08x\t//导出函数地址表(RVA)指向4字节的数组(大小为NumOfFun)\n", pExport->AddressOfFunctions, RvaToFoa(pExport->AddressOfFunctions));
-	PRINT_INFO("0000h	AddressOfNames\t\t->0x%08X\tFOA->%08x//导出函数名称表(RVA)指向4字节的数组(大小为NumOfNam)\n", pExport->AddressOfNames, RvaToFoa(pExport->AddressOfNames));
-	PRINT_INFO("0000h	AddressOfNameOrdinals\t->0x%08X\tFOA->%08x\t//名称序号表指向2字节的数组(大小为NumOfNam)\n", pExport->AddressOfNameOrdinals, RvaToFoa(pExport->AddressOfNameOrdinals));
+	PRINT_INFO("0000h	AddressOfFunctions\t->0x%08X  FOA->%08x  节区->%s  //导出函数地址表(RVA)4字节数组(为NumOfFun)\n", 
+		pExport->AddressOfFunctions, 
+		RvaToFoa(pExport->AddressOfFunctions),
+		GetSectionNameByRVA(pExport->AddressOfFunctions));
+	PRINT_INFO("0000h	AddressOfNames\t\t->0x%08X  FOA->%08x  节区->%s  //导出函数名称表(RVA)4字节数组(为NumOfNam)\n", 
+		pExport->AddressOfNames, 
+		RvaToFoa(pExport->AddressOfNames),
+		GetSectionNameByRVA(pExport->AddressOfNames));
+	PRINT_INFO("0000h	AddressOfNameOrdinals\t->0x%08X  FOA->%08x  节区->%s  //名称序号表2字节数组(为NumOfNam)\n", 
+		pExport->AddressOfNameOrdinals, 
+		RvaToFoa(pExport->AddressOfNameOrdinals),
+		GetSectionNameByRVA(pExport->AddressOfNameOrdinals));
 	dwFoa = RvaToFoa(pExport->AddressOfFunctions);
 	DWORD* pFunctions = (DWORD*)(g_lpFileBuffer + dwFoa);
 	dwFoa = RvaToFoa(pExport->AddressOfNames);
@@ -1133,7 +1147,7 @@ void CmdExport(const CHAR* param)
 	dwFoa = RvaToFoa(pExport->AddressOfNameOrdinals);
 	WORD* pOrd = (WORD*)(g_lpFileBuffer + dwFoa);
 	PRINT_ERROR("=========================导出函数=====================\n");
-	PRINT_ERROR("Ordinal\tRVA\t\tFOA\t\tNameRva\t\tNameFOA\t\tName\n");
+	PRINT_ERROR("Ordinal\tRVA\t\tFOA\t\tNameRva\t\tNameFOA\t\t节区\tName\n");
 	for (size_t i = 0; i < pExport->NumberOfFunctions; i++)
 	{
 		DWORD name = NULL;
@@ -1151,11 +1165,11 @@ void CmdExport(const CHAR* param)
 		}
 		if (name != 0)
 		{
-			PRINT_INFO("%08x\t%08x\t%s\n", name, RvaToFoa(name), (const char*)(g_lpFileBuffer + RvaToFoa(name)));
+			PRINT_INFO("%08x\t%08x\t%s\t%s\n", name, RvaToFoa(name), GetSectionNameByRVA(pFunctions[i]), (const char*)(g_lpFileBuffer + RvaToFoa(name)));
 		}
 		else
 		{
-			PRINT_INFO("%08x\t%08x\t<NO NAME>\n", name, 0);
+			PRINT_INFO("%08x\t%08x\t%s\t%s\n", name, 0, GetSectionNameByRVA(pFunctions[i]), "<NO NAME>");
 		}
 	}
 }
