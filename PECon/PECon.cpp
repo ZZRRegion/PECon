@@ -1312,6 +1312,10 @@ void CmdDebug(CONST CHAR* param)
 			p->SizeOfData,
 			p->AddressOfRawData,
 			p->PointerToRawData);
+		if (p->Type == IMAGE_DEBUG_TYPE_CODEVIEW)
+		{
+
+		}
 	}
 }
 
@@ -1556,27 +1560,33 @@ void CmdTLS(const CHAR* param)
 		GetSectionNameByRVA(tlsDir.VirtualAddress));
 	PIMAGE_TLS_DIRECTORY pTls = (PIMAGE_TLS_DIRECTORY)(g_lpFileBuffer + dwFoa);
 	PRINT_TITLE("\n==== TLS Table Info ====\n");
-	PIMAGE_SECTION_HEADER pSection = nullptr;
-	pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pTls->StartAddressOfRawData - g_pNtHeaders->OptionalHeader.ImageBase);
-	PRINT_INFO("StartAddressOfRawData\t->\t%08x\t%s\n", pTls->StartAddressOfRawData, GetSectionName(pSection));
-	pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pTls->EndAddressOfRawData - g_pNtHeaders->OptionalHeader.ImageBase);
-	PRINT_INFO("EndAddressOfRawData\t->\t%08x\t%s\n", pTls->EndAddressOfRawData, GetSectionName(pSection));
-	pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pTls->AddressOfIndex - g_pNtHeaders->OptionalHeader.ImageBase);
-	PRINT_INFO("AddressOfIndex\t\t->\t%08x\t%s\n", pTls->AddressOfIndex, GetSectionName(pSection));
-	pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pTls->AddressOfCallBacks - g_pNtHeaders->OptionalHeader.ImageBase);
-	PRINT_INFO("AddressOfCallBacks\t->\t%08x\t%s\n", pTls->AddressOfCallBacks, GetSectionName(pSection));
+	PRINT_INFO("StartAddressOfRawData\t->%08x\t%s\n", 
+		pTls->StartAddressOfRawData,
+		GetSectionNameByRVA(pTls->StartAddressOfRawData - g_pNtHeaders->OptionalHeader.ImageBase));
+	PRINT_INFO("EndAddressOfRawData\t->%08x\t%s\n", 
+		pTls->EndAddressOfRawData, 
+		GetSectionNameByRVA(pTls->EndAddressOfRawData - g_pNtHeaders->OptionalHeader.ImageBase));
+	PRINT_INFO("AddressOfIndex\t\t->%08x\t%s\n", 
+		pTls->AddressOfIndex, 
+		GetSectionNameByRVA(pTls->AddressOfIndex - g_pNtHeaders->OptionalHeader.ImageBase));
+	PRINT_INFO("AddressOfCallBacks\t->%08x\t%s\n", 
+		pTls->AddressOfCallBacks, 
+		GetSectionNameByRVA(pTls->AddressOfCallBacks - g_pNtHeaders->OptionalHeader.ImageBase));
 	PDWORD pCall = (PDWORD)(g_lpFileBuffer + RvaToFoa(pTls->AddressOfCallBacks - g_pNtHeaders->OptionalHeader.ImageBase));
-	PRINT_TITLE("\t序号\t地址\t\t节区\n");
+	PRINT_TITLE("\t序号\tVA\t\tFOA\t\t节区\n");
 	int index = 0;
 	while (*pCall != 0)
 	{
 		DWORD addr = *pCall;
-		pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, addr - g_pNtHeaders->OptionalHeader.ImageBase);
-		PRINT_ERROR("\t%d\t%08x\t%s\n", index++, addr, GetSectionName(pSection));
+		PRINT_ERROR("\t%d\t%08x\t%08x\t%s\n", 
+			index++, 
+			addr, 
+			RvaToFoa(addr - g_pNtHeaders->OptionalHeader.ImageBase),
+			GetSectionNameByRVA(addr - g_pNtHeaders->OptionalHeader.ImageBase));
 		pCall++;
 	}
-	PRINT_INFO("SizeOfZeroFill\t\t->\t%08x\n", pTls->SizeOfZeroFill);
-	PRINT_INFO("Characteristics\t\t->\t%08x\n", pTls->Characteristics);
+	PRINT_INFO("SizeOfZeroFill\t\t->%08x\n", pTls->SizeOfZeroFill);
+	PRINT_INFO("Characteristics\t\t->%08x\n", pTls->Characteristics);
 }
 
 void CmdLoadConfig(const CHAR* param)
