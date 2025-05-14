@@ -84,6 +84,8 @@ void CmdString(CONST CHAR* param);
 void CmdImport(CONST CHAR* param);
 void CmdExport(CONST CHAR* param);
 void CmdResource(CONST CHAR* param);
+void CmdException(CONST CHAR* param);
+void CmdSecurity(CONST CHAR* param);
 void CmdGetExportFuncAddrByName(CONST CHAR* param);
 void CmdGetExportFuncAddrByIndex(CONST CHAR* param);
 void CmdRelocation(CONST CHAR* param);
@@ -125,6 +127,8 @@ static const CmdEntry CMD_TABLE[] =
 	{"import",			CmdImport},
 	{"export",			CmdExport},
 	{"resource",        CmdResource},
+	{"exception",       CmdException},
+	{"security",        CmdSecurity},
 	{"getprocname",		CmdGetExportFuncAddrByName},
 	{"getprocindex",	CmdGetExportFuncAddrByIndex},
 	{"relocation",		CmdRelocation},
@@ -333,29 +337,31 @@ VOID ShowMenu()
 	PRINT_TITLE("==== PE File Analysis Tool ====\n\n");
 
 	PRINT_MENU("命令列表:\n");
-	PRINT_MENU("    load		- 加载PE文件\n");
-	PRINT_MENU("    info		- 显示PE基本信息\n");
-	PRINT_MENU("    dos			- 显示DOS数据\n");
-	PRINT_MENU("    nt			- 显示NT数据\n");
-	PRINT_MENU("    section		- 显示SECTION数据\n");
-	PRINT_MENU("    string		- 显示字符串\n");
-	PRINT_MENU("    import		- 显示IMPORT数据\n");
-	PRINT_MENU("    export		- 显示EXPORT\n");
-	PRINT_MENU("    resource	- 显示资源\n");
-	PRINT_MENU("    getprocname		- 查找指定函数名称地址RVA\n");
-	PRINT_MENU("    getprocindex	- 查找指定函数序号地址RVA\n");
-	PRINT_MENU("    relocation		- 显示RELOCATION数据\n");
-	PRINT_MENU("    reloc-color		- 显示RELOCATION数据\n");
-	PRINT_MENU("    tls			- 显示TLS数据\n");
-	PRINT_MENU("    loadconfig		- 显示LoadConfig数据\n");
-	PRINT_MENU("    delayimport		- 显示延迟导入表数据\n");
-	PRINT_MENU("    rva			- RVA	->	FOA\n");
-	PRINT_MENU("    foa			- FOA	->	RVA\n");
-	PRINT_MENU("    clear		- 清屏\n");
-	PRINT_MENU("    help		- 获取帮助\n");
-	PRINT_MENU("    cmp			- 二进制比较文件\n");
-	PRINT_MENU("    dump		- dump进程文件 dump 1234 //PID\n");
-	PRINT_MENU("    exit		- 退出程序\n");
+	PRINT_MENU("\tload\t\t- 加载PE文件\n");
+	PRINT_MENU("\tinfo\t\t- 显示PE基本信息\n");
+	PRINT_MENU("\tdos\t\t- 显示DOS数据\n");
+	PRINT_MENU("\tnt\t\t- 显示NT数据\n");
+	PRINT_MENU("\tsection\t\t- 显示SECTION数据\n");
+	PRINT_MENU("\tstring\t\t- 显示字符串\n");
+	PRINT_MENU("\timport\t\t- 显示IMPORT数据\n");
+	PRINT_MENU("\texport\t\t- 显示EXPORT\n");
+	PRINT_MENU("\tresource\t- 显示资源\n");
+	PRINT_MENU("\texception\t- 显示异常表\n");
+	PRINT_MENU("\tsecurity\t- 显示\n");
+	PRINT_MENU("\tgetprocname\t- 查找指定函数名称地址RVA\n");
+	PRINT_MENU("\tgetprocindex\t- 查找指定函数序号地址RVA\n");
+	PRINT_MENU("\trelocation\t- 显示RELOCATION数据\n");
+	PRINT_MENU("\treloc-color\t- 显示RELOCATION数据\n");
+	PRINT_MENU("\ttls\t\t- 显示TLS数据\n");
+	PRINT_MENU("\tloadconfig\t- 显示LoadConfig数据\n");
+	PRINT_MENU("\tdelayimport\t- 显示延迟导入表数据\n");
+	PRINT_MENU("\trva\t\t- RVA->FOA\n");
+	PRINT_MENU("\tfoa\t\t- FOA->RVA\n");
+	PRINT_MENU("\tclear\t\t- 清屏\n");
+	PRINT_MENU("\thelp\t\t- 获取帮助\n");
+	PRINT_MENU("\tcmp\t\t- 二进制比较文件\n");
+	PRINT_MENU("\tdump\t\t- dump进程文件 dump 1234 //PID\n");
+	PRINT_MENU("\texit\t\t- 退出程序\n");
 	PRINT_MENU("当前加载文件：%s\n", fileName);
 	PRINT_INFO("请输入命令> ");
 }
@@ -462,7 +468,7 @@ int main()
 	const char* file = R"(C:\Users\stdio\source\repos\PECon\Debug\PEDll.dll)";
 	//file = "D:\\DriverDevelop\\InstDrv\\InstDrv.exe";
 	//file = R"(C:\Users\stdio\source\repos\PECon\PECon\SocketTool.exe)";
-	file = R"(D:\Soft\SocketTool.exe)";
+	//file = R"(D:\Soft\SocketTool.exe)";
 	CmdLoad(file);
 	while(1)
 	{
@@ -1219,6 +1225,54 @@ void CmdResource(const CHAR* param)
 		dwFoa + resDir.Size,
 		resDir.Size,
 		GetSectionNameByRVA(resDir.VirtualAddress));
+}
+
+void CmdException(const CHAR* param)
+{
+	if (g_pNtHeaders == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'加载PE文件\r\n");
+		return;
+	}
+	IMAGE_DATA_DIRECTORY exceptionDir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXCEPTION];
+	if (exceptionDir.VirtualAddress == 0 || exceptionDir.Size == 0)
+	{
+		PRINT_ERROR("错误\t->当前PE文件无异常表\n");
+		return;
+	}
+	DWORD dwFoa = RvaToFoa(exceptionDir.VirtualAddress);
+	PRINT_TITLE("\n==== 异常表 ====\n");
+	PRINT_INFO("VA->%08x~%08x\tFOA->%08x~%08x\tSize->%08x\t%s\n",
+		exceptionDir.VirtualAddress,
+		exceptionDir.VirtualAddress + exceptionDir.Size,
+		dwFoa,
+		dwFoa + exceptionDir.Size,
+		exceptionDir.Size,
+		GetSectionNameByRVA(exceptionDir.VirtualAddress));
+}
+
+void CmdSecurity(const CHAR* param)
+{
+	if (g_pNtHeaders == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'加载PE文件\r\n");
+		return;
+	}
+	IMAGE_DATA_DIRECTORY securityDir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_SECURITY];
+	if (securityDir.VirtualAddress == 0 || securityDir.Size == 0)
+	{
+		PRINT_ERROR("错误\t->当前PE文件无security表\n");
+		return;
+	}
+	DWORD dwFoa = RvaToFoa(securityDir.VirtualAddress);
+	PRINT_TITLE("\n==== security表 ====\n");
+	PRINT_INFO("VA->%08x~%08x\tFOA->%08x~%08x\tSize->%08x\t%s\n",
+		securityDir.VirtualAddress,
+		securityDir.VirtualAddress + securityDir.Size,
+		dwFoa,
+		dwFoa + securityDir.Size,
+		securityDir.Size,
+		GetSectionNameByRVA(securityDir.VirtualAddress));
 }
 
 void CmdGetExportFuncAddrByName(const CHAR* param)
