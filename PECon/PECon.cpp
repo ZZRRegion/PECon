@@ -2215,18 +2215,19 @@ void CmdInsert(CONST CHAR* param)
 	{
 		PRINT_INFO("接在现有节区后面\n");
 		ZeroMemory(pInsertSection, sizeof(IMAGE_SECTION_HEADER));
-		strcpy_s((char*)pInsertSection->Name, IMAGE_SIZEOF_SHORT_NAME, ".zzr");
+		strcpy_s((char*)pInsertSection->Name, IMAGE_SIZEOF_SHORT_NAME, ".zzr");//节区名称，长度小于等于IMAGE_SIZEOF_SHORT_NAME
 		pInsertSection->Misc.VirtualSize = 0x1000;
 		pInsertSection->VirtualAddress = GetAlignment(pLastSection->VirtualAddress + pLastSection->Misc.VirtualSize, g_pNtHeaders->OptionalHeader.SectionAlignment);
 		pInsertSection->PointerToRawData = GetAlignment(pLastSection->PointerToRawData + pLastSection->SizeOfRawData, g_pNtHeaders->OptionalHeader.FileAlignment);
 		pInsertSection->SizeOfRawData = 0x200;
 		pInsertSection->Characteristics = IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE | IMAGE_SCN_CNT_CODE;
-		g_pNtHeaders->FileHeader.NumberOfSections += 1;
-		g_pNtHeaders->OptionalHeader.SizeOfImage += 0x1000;
-		DWORD newFileSize = g_dwFileSize + 0x200;
+		g_pNtHeaders->FileHeader.NumberOfSections += 1;//节区新增1
+		g_pNtHeaders->OptionalHeader.SizeOfImage += pInsertSection->Misc.VirtualSize;//必须加上
+		DWORD newFileSize = g_dwFileSize + pInsertSection->SizeOfRawData;
 		PBYTE newBuff = (PBYTE)malloc(newFileSize);
 		memcpy_s(newBuff, newFileSize, g_lpFileBuffer, g_dwFileSize);
 		Init(newBuff, newFileSize);
+		PRINT_INFO("shellcode写入位置：FOA->%08x\tRVA->%08x\n", pInsertSection->PointerToRawData, pInsertSection->VirtualAddress);
 		InsertShellCode(newBuff, pInsertSection->PointerToRawData, pInsertSection->VirtualAddress);
 		std::string newFileName = std::filesystem::path(fileName).parent_path().append("wo.exe").string();
 		WriteFile(newFileName.c_str(), newBuff, newFileSize);
