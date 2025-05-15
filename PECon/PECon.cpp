@@ -105,6 +105,7 @@ void CmdExit(CONST CHAR* param);
 void CmdRead(CONST CHAR* param);
 void CmdReadStr(CONST CHAR* param);
 void CmdShellCode(CONST CHAR* param);
+void CmdInsert(CONST CHAR* param);
 void FreeLoadedFile();
 bool ReadFileMemory(const char* file, PBYTE buff, DWORD length);
 const char* GetSectionName(PIMAGE_SECTION_HEADER pSection, bool first = true);
@@ -150,6 +151,7 @@ static const CmdEntry CMD_TABLE[] =
 	{"read",			CmdRead},
 	{"readStr",			CmdReadStr},
 	{"shellcode",       CmdShellCode},
+	{"insert",          CmdInsert},
 	{nullptr, nullptr}
 };
 // ==============================================
@@ -368,6 +370,7 @@ VOID ShowMenu()
 	PRINT_MENU("\tdump\t\t- dump进程文件 dump 1234 //PID\n");
 	PRINT_MENU("\texit\t\t- 退出程序\n");
 	PRINT_MENU("\tshellcode\t- 更改OPE先执行函数\n");
+	PRINT_MENU("\tinsert\t- 插入节区\n");
 	PRINT_MENU("当前加载文件：%s\n", fileName);
 	PRINT_INFO("请输入命令> ");
 }
@@ -2168,15 +2171,6 @@ void CmdShellCode(CONST CHAR* param)
 		g_pNtHeaders->OptionalHeader.AddressOfEntryPoint = dwRva;
 		//写入到文件内存中
 		PRINT_INFO("写入执行代码\n");
-		for (size_t i = 0; i < sizeof(shellcode); i++)
-		{
-			if (i % 16 == 0)
-			{
-				PRINT_INFO("\n");
-			}
-			PRINT_INFO("%02x ", (BYTE)shellcode[i]);
-		}
-		PRINT_INFO("\n");
 		memcpy_s(g_lpFileBuffer + insertAddr, sizeof(shellcode), shellcode, sizeof(shellcode));
 		std::string newFileName = std::filesystem::path(fileName).parent_path().append("wo.exe").string();
 		WriteFile(newFileName.c_str(), g_lpFileBuffer, g_dwFileSize);
@@ -2186,6 +2180,51 @@ void CmdShellCode(CONST CHAR* param)
 	{
 		PRINT_ERROR("未找到合适的位置插入shellcode\n");
 	}
+}
+DWORD GetAlignment(DWORD dwAddr, DWORD alignment)
+{
+	if (dwAddr % alignment == 0)
+		return dwAddr;
+	return (dwAddr / alignment + 1) * alignment;
+}
+void CmdInsert(CONST CHAR* param)
+{
+	if (g_pNtHeaders == nullptr)
+	{
+		PRINT_ERROR("错误	->	请先使用'load'命令加载PE文件\r\n");
+		return;
+	}
+	PRINT_TITLE("\n==== 插入节区 ====\n");
+	PRINT_TITLE("找位置存放新节区\n");
+	// 最后一个节区
+	PIMAGE_SECTION_HEADER pFirstSection = IMAGE_FIRST_SECTION(g_pNtHeaders);
+	PIMAGE_SECTION_HEADER pLastSection = pFirstSection + g_pNtHeaders->FileHeader.NumberOfSections - 1;
+	PIMAGE_SECTION_HEADER pInsertSection = pFirstSection + g_pNtHeaders->FileHeader.NumberOfSections;
+	DWORD offset = (DWORD)((PBYTE)pInsertSection - g_lpFileBuffer);
+	if (offset + sizeof(IMAGE_SECTION_HEADER) <= pFirstSection->PointerToRawData)
+	{
+		PRINT_INFO("接在现有节区后面\n");
+		ZeroMemory(pInsertSection, sizeof(IMAGE_SECTION_HEADER));
+		strcpy_s((char*)pInsertSection->Name, IMAGE_SIZEOF_SHORT_NAME, ".zzr");
+		pInsertSection->Misc.VirtualSize = 0x1000;
+		pInsertSection->VirtualAddress = GetAlignment(pLastSection->VirtualAddress + pLastSection->Misc.VirtualSize, g_pNtHeaders->OptionalHeader.SectionAlignment);
+		pInsertSection->PointerToRawData = GetAlignment(pLastSection->PointerToRawData + pLastSection->SizeOfRawData, g_pNtHeaders->OptionalHeader.FileAlignment);
+		pInsertSection->SizeOfRawData = 0x200;
+		pInsertSection->Characteristics = IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE | IMAGE_SCN_CNT_CODE;
+		g_pNtHeaders->FileHeader.NumberOfSections += 1;
+		g_pNtHeaders->OptionalHeader.SizeOfImage += 0x1000;
+		DWORD newFileSize = g_dwFileSize + 0x200;
+		PBYTE newBuff = (PBYTE)malloc(newFileSize);
+		memcpy_s(newBuff, newFileSize, g_lpFileBuffer, g_dwFileSize);
+		std::string newFileName = std::filesystem::path(fileName).parent_path().append("wo.exe").string();
+		WriteFile(newFileName.c_str(), newBuff, newFileSize);
+		PRINT_INFO("重新写入到文件：%s\n", newFileName.c_str());
+	}
+	else
+	{
+		PRINT_ERROR("无法接在现有节区后面\n");
+	}
+	
 }
 
 void FreeLoadedFile()
