@@ -76,7 +76,7 @@ VOID ProcessCommand();
 DWORD RvaToFoa(DWORD dwRva);
 DWORD FoaToRva(DWORD dwFoa);
 void CmdLoad(CONST CHAR* param);
-void Init();
+bool Init(PBYTE buff, DWORD dwLength);
 void CmdInfo(CONST CHAR* param);
 void CmdDos(CONST CHAR* param);
 void CmdNt(CONST CHAR* param);
@@ -371,7 +371,7 @@ VOID ShowMenu()
 	PRINT_MENU("\tdump\t\t- dump进程文件 dump 1234 //PID\n");
 	PRINT_MENU("\texit\t\t- 退出程序\n");
 	PRINT_MENU("\tshellcode\t- 更改OPE先执行函数\n");
-	PRINT_MENU("\tinsert\t- 插入节区\n");
+	PRINT_MENU("\tinsert\t\t- 插入节区\n");
 	PRINT_MENU("当前加载文件：%s\n", fileName);
 	PRINT_INFO("请输入命令> ");
 }
@@ -541,48 +541,11 @@ void CmdLoad(const CHAR* param)
 		FreeLoadedFile();
 		return;
 	}
-
-	// DOS
-	g_pDosHeader = (PIMAGE_DOS_HEADER)g_lpFileBuffer;
-	if (g_pDosHeader->e_magic != IMAGE_DOS_SIGNATURE)
+	if (!Init(g_lpFileBuffer, g_dwFileSize))
 	{
-		PRINT_ERROR("错误	->	无效的DOS签名（0x%03X)\r\n", g_pDosHeader->e_magic);
 		FreeLoadedFile();
 		return;
 	}
-
-	// NT
-	DWORD dwNtHeaderOffset = g_pDosHeader->e_lfanew;
-	if (dwNtHeaderOffset < sizeof(IMAGE_DOS_HEADER) || dwNtHeaderOffset + sizeof(IMAGE_NT_HEADERS) > g_dwFileSize)
-	{
-		PRINT_ERROR("错误	->	无效的NT偏移（0x%08X)\r\n", dwNtHeaderOffset);
-		FreeLoadedFile();
-		return;
-	}
-
-	g_pNtHeaders = (PIMAGE_NT_HEADERS)(g_lpFileBuffer + dwNtHeaderOffset);
-	if (g_pNtHeaders->Signature != IMAGE_NT_SIGNATURE)
-	{
-		PRINT_ERROR("错误	->	无效的PE签名（0x%08X)\r\n", g_pNtHeaders->Signature);
-		FreeLoadedFile();
-		return;
-	}
-
-	WORD opHeaderMagic = g_pNtHeaders->OptionalHeader.Magic;
-	if (opHeaderMagic != IMAGE_NT_OPTIONAL_HDR32_MAGIC 
-		/*&& opHeaderMagic != IMAGE_NT_OPTIONAL_HDR64_MAGIC*/)//暂时不分析64位
-	{
-		PRINT_ERROR("错误	->	不支持的OPTION->MAGIC（0x%04X)\r\n", opHeaderMagic);
-		FreeLoadedFile();
-		return;
-	}
-	// SECTION
-	DWORD dwSectionHeaderOffset = dwNtHeaderOffset +
-		sizeof(DWORD) +
-		IMAGE_SIZEOF_FILE_HEADER +
-		g_pNtHeaders->FileHeader.SizeOfOptionalHeader;
-	IMAGE_FIRST_SECTION(g_pNtHeaders);//这个也能获取到节区首地址
-	g_pSectionHeader = (PIMAGE_SECTION_HEADER)(g_lpFileBuffer + dwSectionHeaderOffset);
 	strcpy_s(fileName, param);
 	//释放资源
 	CloseHandle(g_hFile);
@@ -593,9 +556,45 @@ void CmdLoad(const CHAR* param)
 	PRINT_INFO("文件大小	->	0x%08x \r\n", g_dwFileSize);
 }
 
-void Init()
+bool Init(PBYTE buff, DWORD dwLength)
 {
+	// DOS
+	g_pDosHeader = (PIMAGE_DOS_HEADER)buff;
+	if (g_pDosHeader->e_magic != IMAGE_DOS_SIGNATURE)
+	{
+		PRINT_ERROR("错误	->	无效的DOS签名（0x%03X)\r\n", g_pDosHeader->e_magic);
+		return false;
+	}
 
+	// NT
+	DWORD dwNtHeaderOffset = g_pDosHeader->e_lfanew;
+	if (dwNtHeaderOffset < sizeof(IMAGE_DOS_HEADER) || dwNtHeaderOffset + sizeof(IMAGE_NT_HEADERS) > dwLength)
+	{
+		PRINT_ERROR("错误	->	无效的NT偏移（0x%08X)\r\n", dwNtHeaderOffset);
+		return false;
+	}
+
+	g_pNtHeaders = (PIMAGE_NT_HEADERS)(buff + dwNtHeaderOffset);
+	if (g_pNtHeaders->Signature != IMAGE_NT_SIGNATURE)
+	{
+		PRINT_ERROR("错误	->	无效的PE签名（0x%08X)\r\n", g_pNtHeaders->Signature);
+		return false;
+	}
+
+	WORD opHeaderMagic = g_pNtHeaders->OptionalHeader.Magic;
+	if (opHeaderMagic != IMAGE_NT_OPTIONAL_HDR32_MAGIC
+		/*&& opHeaderMagic != IMAGE_NT_OPTIONAL_HDR64_MAGIC*/)//暂时不分析64位
+	{
+		PRINT_ERROR("错误	->	不支持的OPTION->MAGIC（0x%04X)\r\n", opHeaderMagic);
+		return false;
+	}
+	// SECTION
+	DWORD dwSectionHeaderOffset = dwNtHeaderOffset +
+		sizeof(DWORD) +
+		IMAGE_SIZEOF_FILE_HEADER +
+		g_pNtHeaders->FileHeader.SizeOfOptionalHeader;
+	IMAGE_FIRST_SECTION(g_pNtHeaders);//这个也能获取到节区首地址
+	g_pSectionHeader = (PIMAGE_SECTION_HEADER)(buff + dwSectionHeaderOffset);
 }
 
 void CmdInfo(const CHAR* param)
@@ -2227,6 +2226,7 @@ void CmdInsert(CONST CHAR* param)
 		DWORD newFileSize = g_dwFileSize + 0x200;
 		PBYTE newBuff = (PBYTE)malloc(newFileSize);
 		memcpy_s(newBuff, newFileSize, g_lpFileBuffer, g_dwFileSize);
+		Init(newBuff, newFileSize);
 		InsertShellCode(newBuff, pInsertSection->PointerToRawData, pInsertSection->VirtualAddress);
 		std::string newFileName = std::filesystem::path(fileName).parent_path().append("wo.exe").string();
 		WriteFile(newFileName.c_str(), newBuff, newFileSize);
