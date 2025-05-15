@@ -2083,9 +2083,8 @@ void CmdReadStr(const CHAR* param)
 	PBYTE str = g_lpFileBuffer + dwFoa;
 	PRINT_INFO("字符：%s\n", str);
 }
-bool WriteFile(PBYTE data, DWORD length)
+bool WriteFile(const char* fileName, PBYTE data, DWORD length)
 {
-	const char* fileName = "./wo.exe";
 	FILE* file = nullptr;
 	fopen_s(&file, fileName, "wb");
 	if (file == nullptr)
@@ -2148,7 +2147,7 @@ void CmdShellCode(CONST CHAR* param)
 		// Invoke MessageBoxA(NULL, NULL, NULL, NULL);
 		// jmp OPE
 		char shellcode[] = {
-			0x6A, 0x01, //push 0
+			0x6A, 0x00, //push 0
 			0x6A, 0x00, //push 0
 			0x6A, 0x00, //push 0
 			0x6A, 0x00, //push 0
@@ -2156,7 +2155,7 @@ void CmdShellCode(CONST CHAR* param)
 			0xE9, 0x4E, 0xFE, 0xFF, 0xFF  // JMP OEP
 		};
 		//0x76101A50为MessageBoxA的VA地址
-		DWORD messageBoxAAddr = 0x76101A50;
+		DWORD messageBoxAAddr = (DWORD)&MessageBoxA;
 		//8为前面占用的4个push 0,5为call指令长度
 		DWORD callAddr = messageBoxAAddr - va - 8 - 5;
 		memcpy_s(shellcode + 9, 4, &callAddr, 4);
@@ -2179,7 +2178,9 @@ void CmdShellCode(CONST CHAR* param)
 		}
 		PRINT_INFO("\n");
 		memcpy_s(g_lpFileBuffer + insertAddr, sizeof(shellcode), shellcode, sizeof(shellcode));
-		WriteFile(g_lpFileBuffer, g_dwFileSize);
+		std::string newFileName = std::filesystem::path(fileName).parent_path().append("wo.exe").string();
+		WriteFile(newFileName.c_str(), g_lpFileBuffer, g_dwFileSize);
+		PRINT_INFO("已重新写入文件：%s\n", newFileName.c_str());
 	}
 	else
 	{
