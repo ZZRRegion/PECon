@@ -2161,10 +2161,12 @@ void CmdShellCode(CONST CHAR* param)
 		DWORD messageBoxAAddr = (DWORD)&MessageBoxA;
 		//8为前面占用的4个push 0,5为call指令长度
 		DWORD callAddr = messageBoxAAddr - va - 8 - 5;
+		//填充call的函数地址
 		memcpy_s(shellcode + 9, 4, &callAddr, 4);
 		DWORD oep = g_pNtHeaders->OptionalHeader.ImageBase + g_pNtHeaders->OptionalHeader.AddressOfEntryPoint;
 		// 13为前面占用，5为jmp指令长度
 		DWORD jmpAddr = oep - va - 13 - 5;
+		//填充jmp的跳转OEP地址
 		memcpy_s(shellcode + 14, 4, &jmpAddr, 4);
 		//更改OEP
 		PRINT_INFO("更改OEP：%08x->%08x\n", g_pNtHeaders->OptionalHeader.AddressOfEntryPoint, dwRva);
