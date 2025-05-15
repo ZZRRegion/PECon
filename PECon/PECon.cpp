@@ -2226,7 +2226,7 @@ void CmdInsert(CONST CHAR* param)
 		DWORD newFileSize = g_dwFileSize + pInsertSection->SizeOfRawData;
 		PBYTE newBuff = (PBYTE)malloc(newFileSize);
 		memcpy_s(newBuff, newFileSize, g_lpFileBuffer, g_dwFileSize);
-		Init(newBuff, newFileSize);
+		Init(newBuff, newFileSize);//重新设置g_pNtHeaders等
 		PRINT_INFO("shellcode写入位置：FOA->%08x\tRVA->%08x\n", pInsertSection->PointerToRawData, pInsertSection->VirtualAddress);
 		InsertShellCode(newBuff, pInsertSection->PointerToRawData, pInsertSection->VirtualAddress);
 		std::string newFileName = std::filesystem::path(fileName).parent_path().append("wo.exe").string();
