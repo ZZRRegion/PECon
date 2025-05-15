@@ -76,6 +76,7 @@ VOID ProcessCommand();
 DWORD RvaToFoa(DWORD dwRva);
 DWORD FoaToRva(DWORD dwFoa);
 void CmdLoad(CONST CHAR* param);
+void Init();
 void CmdInfo(CONST CHAR* param);
 void CmdDos(CONST CHAR* param);
 void CmdNt(CONST CHAR* param);
@@ -580,7 +581,7 @@ void CmdLoad(const CHAR* param)
 		sizeof(DWORD) +
 		IMAGE_SIZEOF_FILE_HEADER +
 		g_pNtHeaders->FileHeader.SizeOfOptionalHeader;
-
+	IMAGE_FIRST_SECTION(g_pNtHeaders);//这个也能获取到节区首地址
 	g_pSectionHeader = (PIMAGE_SECTION_HEADER)(g_lpFileBuffer + dwSectionHeaderOffset);
 	strcpy_s(fileName, param);
 	//释放资源
@@ -590,6 +591,11 @@ void CmdLoad(const CHAR* param)
 	//输出信息
 	PRINT_INFO("成功加载PE文件	->	%s \r\n", param);
 	PRINT_INFO("文件大小	->	0x%08x \r\n", g_dwFileSize);
+}
+
+void Init()
+{
+
 }
 
 void CmdInfo(const CHAR* param)
@@ -2100,6 +2106,36 @@ bool WriteFile(const char* fileName, PBYTE data, DWORD length)
 	fclose(file);
 	return true;
 }
+void InsertShellCode(PBYTE buffer, DWORD insertAddrFoa, DWORD insertAddrRVA)
+{
+	DWORD dwRva = insertAddrRVA;
+	DWORD va = g_pNtHeaders->OptionalHeader.ImageBase + dwRva;
+	char shellcode[] = {
+			0x6A, 0x00, //push 0
+			0x6A, 0x00, //push 0
+			0x6A, 0x00, //push 0
+			0x6A, 0x00, //push 0
+			0xE8, 0x5F, 0x88, 0xC4, 0x75, //call MessageBoxA
+			0xE9, 0x4E, 0xFE, 0xFF, 0xFF  // JMP OEP
+	};
+	//0x76101A50为MessageBoxA的VA地址
+	DWORD messageBoxAAddr = (DWORD)&MessageBoxA;
+	//8为前面占用的4个push 0,5为call指令长度
+	DWORD callAddr = messageBoxAAddr - va - 8 - 5;
+	//填充call的函数地址
+	memcpy_s(shellcode + 9, 4, &callAddr, 4);
+	DWORD oep = g_pNtHeaders->OptionalHeader.ImageBase + g_pNtHeaders->OptionalHeader.AddressOfEntryPoint;
+	// 13为前面占用，5为jmp指令长度
+	DWORD jmpAddr = oep - va - 13 - 5;
+	//填充jmp的跳转OEP地址
+	memcpy_s(shellcode + 14, 4, &jmpAddr, 4);
+	//更改OEP
+	PRINT_INFO("更改OEP：%08x->%08x\n", g_pNtHeaders->OptionalHeader.AddressOfEntryPoint, dwRva);
+	g_pNtHeaders->OptionalHeader.AddressOfEntryPoint = dwRva;
+	//写入到文件内存中
+	PRINT_INFO("写入执行代码\n");
+	memcpy_s(buffer + insertAddrFoa, sizeof(shellcode), shellcode, sizeof(shellcode));
+}
 void CmdShellCode(CONST CHAR* param)
 {
 	if (g_pNtHeaders == nullptr)
@@ -2117,7 +2153,6 @@ void CmdShellCode(CONST CHAR* param)
 	{
 		if (pSection[i].Characteristics & IMAGE_SCN_MEM_EXECUTE)
 		{
-			PRINT_INFO("节区->%s\n", GetSectionName(pSection));
 			for (PBYTE data = (g_lpFileBuffer + pSection->PointerToRawData); data < (g_lpFileBuffer + pSection->PointerToRawData + pSection->SizeOfRawData); data++)
 			{
 				if (*data == 0)
@@ -2125,6 +2160,7 @@ void CmdShellCode(CONST CHAR* param)
 					length++;
 					if (length >= MAXZERO)
 					{
+						PRINT_INFO("写入节区->%s\n", GetSectionName(pSection));
 						startData = data - length;
 						break;
 					}
@@ -2145,36 +2181,8 @@ void CmdShellCode(CONST CHAR* param)
 			insertAddr = (insertAddr / 16 + 1) * 16;
 		}
 		DWORD dwRva = FoaToRva(insertAddr);
-		DWORD va = g_pNtHeaders->OptionalHeader.ImageBase + dwRva;
-		PRINT_INFO("写入起始RVA->%08x\tFOA->%08x\n", dwRva, insertAddr);
-		//以下完成如下指令
-		// Invoke MessageBoxA(NULL, NULL, NULL, NULL);
-		// jmp OPE
-		char shellcode[] = {
-			0x6A, 0x00, //push 0
-			0x6A, 0x00, //push 0
-			0x6A, 0x00, //push 0
-			0x6A, 0x00, //push 0
-			0xE8, 0x5F, 0x88, 0xC4, 0x75, //call MessageBoxA
-			0xE9, 0x4E, 0xFE, 0xFF, 0xFF  // JMP OEP
-		};
-		//0x76101A50为MessageBoxA的VA地址
-		DWORD messageBoxAAddr = (DWORD)&MessageBoxA;
-		//8为前面占用的4个push 0,5为call指令长度
-		DWORD callAddr = messageBoxAAddr - va - 8 - 5;
-		//填充call的函数地址
-		memcpy_s(shellcode + 9, 4, &callAddr, 4);
-		DWORD oep = g_pNtHeaders->OptionalHeader.ImageBase + g_pNtHeaders->OptionalHeader.AddressOfEntryPoint;
-		// 13为前面占用，5为jmp指令长度
-		DWORD jmpAddr = oep - va - 13 - 5;
-		//填充jmp的跳转OEP地址
-		memcpy_s(shellcode + 14, 4, &jmpAddr, 4);
-		//更改OEP
-		PRINT_INFO("更改OEP：%08x->%08x\n", g_pNtHeaders->OptionalHeader.AddressOfEntryPoint, dwRva);
-		g_pNtHeaders->OptionalHeader.AddressOfEntryPoint = dwRva;
-		//写入到文件内存中
-		PRINT_INFO("写入执行代码\n");
-		memcpy_s(g_lpFileBuffer + insertAddr, sizeof(shellcode), shellcode, sizeof(shellcode));
+		PRINT_INFO("写入起始地址:FOA->%08x\tRVA->%08x\n", insertAddr, dwRva);
+		InsertShellCode(g_lpFileBuffer, insertAddr, dwRva);
 		std::string newFileName = std::filesystem::path(fileName).parent_path().append("wo.exe").string();
 		WriteFile(newFileName.c_str(), g_lpFileBuffer, g_dwFileSize);
 		PRINT_INFO("已重新写入文件：%s\n", newFileName.c_str());
@@ -2219,6 +2227,7 @@ void CmdInsert(CONST CHAR* param)
 		DWORD newFileSize = g_dwFileSize + 0x200;
 		PBYTE newBuff = (PBYTE)malloc(newFileSize);
 		memcpy_s(newBuff, newFileSize, g_lpFileBuffer, g_dwFileSize);
+		InsertShellCode(newBuff, pInsertSection->PointerToRawData, pInsertSection->VirtualAddress);
 		std::string newFileName = std::filesystem::path(fileName).parent_path().append("wo.exe").string();
 		WriteFile(newFileName.c_str(), newBuff, newFileSize);
 		PRINT_INFO("重新写入到文件：%s\n", newFileName.c_str());
