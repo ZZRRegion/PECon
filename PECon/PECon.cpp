@@ -568,7 +568,8 @@ void CmdLoad(const CHAR* param)
 	}
 
 	WORD opHeaderMagic = g_pNtHeaders->OptionalHeader.Magic;
-	if (opHeaderMagic != IMAGE_NT_OPTIONAL_HDR32_MAGIC && opHeaderMagic != IMAGE_NT_OPTIONAL_HDR64_MAGIC)
+	if (opHeaderMagic != IMAGE_NT_OPTIONAL_HDR32_MAGIC 
+		/*&& opHeaderMagic != IMAGE_NT_OPTIONAL_HDR64_MAGIC*/)//暂时不分析64位
 	{
 		PRINT_ERROR("错误	->	不支持的OPTION->MAGIC（0x%04X)\r\n", opHeaderMagic);
 		FreeLoadedFile();
