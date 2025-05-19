@@ -2076,7 +2076,7 @@ void CmdImageBase(CONST CHAR* param)
 		return;
 	}
 	PIMAGE_BASE_RELOCATION pRelocBlock = (PIMAGE_BASE_RELOCATION)(g_lpFileBuffer + dwBaseRelocFoa);
-
+	//修订重定位表的内容
 	while (pRelocBlock->VirtualAddress != 0
 		&& pRelocBlock->SizeOfBlock != 0)
 	{
