@@ -1894,7 +1894,8 @@ void CmdCmp(const CHAR* param)
 			goto end;
 		}
 		PRINT_INFO("文件1长度：%d\t文件2长度:%d\n", file1Size, file2Size);
-		for (int i = 0; i < min(file1Size, file2Size); i++)
+		size_t minLength = min(file1Size, file2Size);
+		for (int i = 0; i < minLength; i++)
 		{
 			if (file1buff[i] != file2buff[i])
 			{
@@ -1943,6 +1944,11 @@ void CmdDump(const CHAR* param)
 
 			std::string name = std::filesystem::path(fileName).filename().string();
 			IMAGE_DOS_HEADER dos = {};
+			if (hMods[0] == nullptr)
+			{
+				PRINT_ERROR("获取模块失败！\n");
+				return;
+			}
 			if (!ReadProcessMemory(hProcess, (LPCVOID)hMods[0], &dos, sizeof(IMAGE_DOS_HEADER), nullptr))
 			{
 				PRINT_ERROR("读取进程dos头内存失败\n");
