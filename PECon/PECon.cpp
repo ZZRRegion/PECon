@@ -110,6 +110,7 @@ void CmdReadStr(CONST CHAR* param);
 void CmdShellCode(CONST CHAR* param);
 void CmdInsert(CONST CHAR* param);
 void FreeLoadedFile();
+bool WriteFile(const char* fileName, PBYTE data, DWORD length);
 bool ReadFileMemory(const char* file, PBYTE buff, DWORD length);
 const char* GetSectionName(PIMAGE_SECTION_HEADER pSection, bool first = true);
 const char* GetSectionNameByRVA(DWORD dwRva, bool first = true);
@@ -2050,77 +2051,63 @@ void CmdDump(const CHAR* param)
 
 void CmdImageBase(CONST CHAR* param)
 {
-	DWORD imagebase = 0;
-	if (sscanf(param, "0x%x", &imagebase) != 1 || sscanf(param, "%x", &imagebase) != 1)
-	{
-		PRINT_INFO("原ImageBase->%08x\t新ImageBase->%08x\n",
-			g_pNtHeaders->OptionalHeader.ImageBase,
-			imagebase);
-		g_pNtHeaders->OptionalHeader.ImageBase = imagebase;
-		//导出表判断
-		IMAGE_DATA_DIRECTORY dir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
-		if (dir.VirtualAddress == 0 || dir.Size == 0)
-		{
-			PRINT_ERROR("错误\t->\t当前PE文件不存在重定位表\r\n");
-			return;
-		}
-		DWORD dwBaseRelocFoa = RvaToFoa(dir.VirtualAddress);
-		if (dwBaseRelocFoa == 0)
-		{
-			PRINT_ERROR("错误\t->\t重定位结构RVA转换FOA失败\r\n");
-			return;
-		}
-		PIMAGE_BASE_RELOCATION pRelocBlock = (PIMAGE_BASE_RELOCATION)(g_lpFileBuffer + dwBaseRelocFoa);
-
-		PRINT_TITLE("\n==== Relocation Table Information ====\n");
-		PRINT_INFO("VA->%08x~%08x\tFOA->%08x~%08x\tSize->%08x\t%s\n",
-			dir.VirtualAddress,
-			dir.VirtualAddress + dir.Size,
-			dwBaseRelocFoa,
-			dwBaseRelocFoa + dir.Size,
-			dir.Size,
-			GetSectionNameByRVA(dir.VirtualAddress));
-		while (pRelocBlock->VirtualAddress != 0
-			&& pRelocBlock->SizeOfBlock != 0)
-		{
-			DWORD entryCount = (pRelocBlock->SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(WORD);
-			PWORD pEntry = (PWORD)((BYTE*)pRelocBlock + sizeof(IMAGE_BASE_RELOCATION));
-			PRINT_INFO("----------------------------------------------------------------\n");
-			PRINT_INFO("BlockBack\t->\t0x%08x\r\n", pRelocBlock->VirtualAddress);
-			PRINT_INFO("BlockSize\t->\t0x%08x\r\n", pRelocBlock->SizeOfBlock);
-			PRINT_INFO("BlockCount\t->\t%d\r\n", entryCount);
-			PIMAGE_SECTION_HEADER pSection = ImageRvaToSection(g_pNtHeaders, g_lpFileBuffer, pRelocBlock->VirtualAddress);
-			PRINT_INFO("节区\t\t->\t%s\r\n\n", GetSectionName(pSection));
-			PRINT_INFO("序号\tTypeOffset\t类型\t\tRVA地址\t\tFOA地址\n");
-			PRINT_INFO("----------------------------------------------------------------\n");
-			for (size_t i = 0; i < entryCount; i++)
-			{
-				WORD entry = pEntry[i];
-				BYTE type = (entry >> 12) & 0xF;
-				WORD offset = entry & 0xFFF;
-				DWORD rva = pRelocBlock->VirtualAddress + offset;
-				DWORD foa = RvaToFoa(rva);
-				if (type == IMAGE_REL_BASED_HIGHLOW)
-				{
-					PRINT_INFO("%d\t%04x\t\tHIGHLOW\t\t%08x\t%08x\n", i, entry, rva, foa);
-				}
-				else if (type == IMAGE_REL_BASED_ABSOLUTE)
-				{
-					PRINT_INFO("%d\t%04x\t\tABS\t\t%08x\t%08x\n", i, entry, rva, foa);
-				}
-				else
-				{
-					PRINT_INFO("%d\t0x%04x\t\t%x\t\t0x%08x\t%08x\n", i, entry, type, rva, foa);
-				}
-			}
-			PRINT_INFO("----------------------------------------------------------------\n");
-			pRelocBlock = (PIMAGE_BASE_RELOCATION)((BYTE*)pRelocBlock + pRelocBlock->SizeOfBlock);
-		}
-	}
-	else
+	DWORD newImagebase = 0;
+	if (sscanf(param, "0x%x", &newImagebase) != 1 && sscanf(param, "%x", &newImagebase) != 1)
 	{
 		PRINT_ERROR("错误，示例 imagebase 500000 或0x500000\n");
+		return;
 	}
+	PRINT_INFO("原ImageBase->%08x\t新ImageBase->%08x\n",
+		g_pNtHeaders->OptionalHeader.ImageBase,
+		newImagebase);
+	DWORD oldImagebase = g_pNtHeaders->OptionalHeader.ImageBase;
+	g_pNtHeaders->OptionalHeader.ImageBase = newImagebase;
+	//导出表判断
+	IMAGE_DATA_DIRECTORY dir = g_pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
+	if (dir.VirtualAddress == 0 || dir.Size == 0)
+	{
+		PRINT_ERROR("错误\t->\t当前PE文件不存在重定位表\r\n");
+		return;
+	}
+	DWORD dwBaseRelocFoa = RvaToFoa(dir.VirtualAddress);
+	if (dwBaseRelocFoa == 0)
+	{
+		PRINT_ERROR("错误\t->\t重定位结构RVA转换FOA失败\r\n");
+		return;
+	}
+	PIMAGE_BASE_RELOCATION pRelocBlock = (PIMAGE_BASE_RELOCATION)(g_lpFileBuffer + dwBaseRelocFoa);
+
+	while (pRelocBlock->VirtualAddress != 0
+		&& pRelocBlock->SizeOfBlock != 0)
+	{
+		DWORD entryCount = (pRelocBlock->SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(WORD);
+		PWORD pEntry = (PWORD)((BYTE*)pRelocBlock + sizeof(IMAGE_BASE_RELOCATION));
+		for (size_t i = 0; i < entryCount; i++)
+		{
+			WORD entry = pEntry[i];
+			BYTE type = (entry >> 12) & 0xF;
+			WORD offset = entry & 0xFFF;
+			DWORD rva = pRelocBlock->VirtualAddress + offset;
+			DWORD foa = RvaToFoa(rva);
+			DWORD* pValue = (DWORD*)(g_lpFileBuffer + foa);
+			if (type == IMAGE_REL_BASED_HIGHLOW)
+			{
+				*pValue = *pValue - oldImagebase + newImagebase;
+			}
+			else if (type == IMAGE_REL_BASED_ABSOLUTE)
+			{
+				PRINT_INFO("%d\t%04x\t\tABS\t\t%08x\t%08x\t%08x\n", i, entry, rva, foa, *pValue);
+			}
+			else
+			{
+				PRINT_INFO("%d\t0x%04x\t\t%x\t\t0x%08x\t%08x\t%08x\n", i, entry, type, rva, foa, *pValue);
+			}
+		}
+		pRelocBlock = (PIMAGE_BASE_RELOCATION)((BYTE*)pRelocBlock + pRelocBlock->SizeOfBlock);
+	}
+	std::string newFileName = std::filesystem::path(fileName).parent_path().append("wo.exe").string();
+	WriteFile(newFileName.c_str(), g_lpFileBuffer, g_dwFileSize);
+	PRINT_INFO("更改成功！%s\n", newFileName.c_str());
 }
 
 void CmdExit(const CHAR* param)
