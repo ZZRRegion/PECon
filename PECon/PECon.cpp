@@ -73,6 +73,7 @@ char g_SectionName2[IMAGE_SIZEOF_SHORT_NAME + 1] = {};
 // ==============================================
 VOID ShowMenu();
 VOID ProcessCommand();
+DWORD GetAlignment(DWORD dwAddr, DWORD alignment);
 DWORD RvaToFoa(DWORD dwRva);
 DWORD FoaToRva(DWORD dwFoa);
 void CmdLoad(CONST CHAR* param);
@@ -2175,10 +2176,7 @@ void CmdShellCode(CONST CHAR* param)
 	if (startData)
 	{
 		DWORD insertAddr = startData - g_lpFileBuffer;
-		if (insertAddr % 16)
-		{
-			insertAddr = (insertAddr / 16 + 1) * 16;
-		}
+		insertAddr = GetAlignment(insertAddr, 0x10);
 		DWORD dwRva = FoaToRva(insertAddr);
 		PRINT_INFO("写入起始地址:FOA->%08x\tRVA->%08x\n", insertAddr, dwRva);
 		InsertShellCode(g_lpFileBuffer, insertAddr, dwRva);
