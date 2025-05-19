@@ -3,7 +3,7 @@
 #pragma comment(linker, "/merge:.data=.text")
 #pragma comment(linker, "/merge:.rdata=.text")
 #pragma comment(linker, "/section:.text,RWE")
-_declspec(naked) void packStart();
+ void packStart();
 PACKINFO g_PackInfo = {(DWORD)packStart};
 DWORD GetImportantModule()
 {
@@ -46,12 +46,12 @@ void GetFunctions()
 	//1、获取kernel32或者kernelbase模块
 	DWORD pKernelBase = GetImportantModule();
 	//获取LoadLibraryExA
-	MyGetProcAddress(pKernelBase, "Load")
+	MyGetProcAddress(pKernelBase, "Load");
 }
 BOOL DecodeSections()
 {
 	int key = 0x51;
-
+	return true;
 }
 _declspec(naked) void packStart()
 {
